@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "asset-cutout-studio",
+  "productName": "Cutout",
   "version": "0.1.0",
-  "identifier": "com.leishi.asset-cutout-studio",
+  "identifier": "com.leishi.cutout",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Asset Cutout Studio",
+        "title": "Cutout",
         "width": 1280,
         "height": 860,
         "minWidth": 1040,

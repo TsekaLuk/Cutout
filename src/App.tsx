@@ -1,21 +1,38 @@
-import { Providers } from '@/components/Providers'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-
 /**
- * Phase 0 placeholder shell. Validates that Tailwind v4, shadcn, the `@` alias,
- * and the provider tree all compile and render. Replaced by the real
- * split-view workspace in Phase 4.
+ * App root (spec §3 / §4c).
+ *
+ * Provider order (outer → inner):
+ *   ThemeProvider (next-themes, drives the `.dark` class our tokens key off)
+ *     Providers        (QueryClient + Tooltip + Toaster — pre-built)
+ *       ServiceProvider(createRegistry())  — the I/O swap seam
+ *         AppShell     — TopBar · WorkspaceLayout · StatusBar
+ *
+ * The service registry (and its dedicated one-shot cutout worker) is built ONCE
+ * via a `useState` initializer; AppShell owns a SEPARATE live-preview worker via
+ * `useAnalysisBridge`. Two clearly-scoped workers, per spec §4b/§5.
  */
+import { useState } from 'react'
+import { ThemeProvider } from 'next-themes'
+import { Providers } from '@/components/Providers'
+import { ServiceProvider } from '@/services/context'
+import { AppShell } from '@/components/AppShell'
+import { createRegistry } from '@/bootstrap'
+
 export default function App() {
+  const [registry] = useState(createRegistry)
+
   return (
-    <Providers>
-      <main className="flex h-full flex-col items-center justify-center gap-4 bg-background text-foreground">
-        <Badge variant="secondary">Tauri 2 · React 19 · Vite 8</Badge>
-        <h1 className="text-2xl font-semibold tracking-tight">Asset Cutout Studio</h1>
-        <p className="text-sm text-muted-foreground">Scaffold online — workspace coming in Phase 4.</p>
-        <Button>It compiles</Button>
-      </main>
-    </Providers>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <Providers>
+        <ServiceProvider registry={registry}>
+          <AppShell />
+        </ServiceProvider>
+      </Providers>
+    </ThemeProvider>
   )
 }

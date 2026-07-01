@@ -1,0 +1,61 @@
+/**
+ * Image helpers (spec §3 lib/image.ts).
+ *
+ * Small wrappers around `createImageBitmap` and blob⇄bytes conversion used by
+ * the drop flow and the export path. DOM-facing (main thread) — the worker has
+ * its own render helpers in `workers/render.worker-side.ts`.
+ */
+import { ACCEPTED_IMAGE_TYPES } from './constants'
+
+/** True if a file looks like an importable raster image. */
+export function isSupportedImage(file: File): boolean {
+  if (file.type) return ACCEPTED_IMAGE_TYPES.includes(file.type)
+  // Some drops omit a MIME type; fall back to extension.
+  return /\.(png|jpe?g|webp|bmp|gif)$/i.test(file.name)
+}
+
+/** Strip the directory + extension from a filename → a slice-name base. */
+export function baseName(fileName: string): string {
+  const noDir = fileName.split(/[\\/]/).pop() ?? fileName
+  const dot = noDir.lastIndexOf('.')
+  return dot > 0 ? noDir.slice(0, dot) : noDir
+}
+
+/**
+ * Decode a File/Blob into an `ImageBitmap` (the store's transfer unit).
+ * Throws a user-friendly error if the bytes are not a decodable image.
+ */
+export async function decodeImage(source: Blob): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(source)
+  } catch {
+    throw new Error('That file could not be decoded as an image.')
+  }
+}
+
+/** Raw PNG bytes from a blob (the export payload unit). */
+export async function blobToBytes(blob: Blob): Promise<Uint8Array> {
+  return new Uint8Array(await blob.arrayBuffer())
+}
+
+/** Wrap raw bytes back into a typed blob (test/util symmetry with the worker). */
+export function bytesToBlob(bytes: Uint8Array, type = 'image/png'): Blob {
+  // Copy into a guaranteed `ArrayBuffer` view: a `Uint8Array` may be backed by a
+  // `SharedArrayBuffer`, which is not a valid `BlobPart` under lib.dom typings.
+  const copy = new Uint8Array(bytes.length)
+  copy.set(bytes)
+  return new Blob([copy.buffer], { type })
+}
+
+/** Human-readable byte size, e.g. `3.2 MB`. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB']
+  let value = bytes / 1024
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unit]}`
+}
