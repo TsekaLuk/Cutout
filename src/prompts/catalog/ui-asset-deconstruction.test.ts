@@ -24,7 +24,7 @@ describe('ui-asset-deconstruction v1.0.0', () => {
     )
     expect(out.system).toContain('UI Asset Sheet / Design Decomposition Board')
     expect(out.system).toContain('Do NOT generate a complete UI page')
-    expect(out.system).toContain('soft matte green/neutral studio background')
+    expect(out.system).toContain('FLAT, PURE WHITE (#FFFFFF)')
     // v1 has no template variables.
     expect(out.userScaffold).toBeUndefined()
   })
