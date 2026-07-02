@@ -230,32 +230,25 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
         <Label htmlFor="provider-model">
           <Trans id="settings.provider_model_label">Default model</Trans>
         </Label>
-        {modelOptions.length > 0 ? (
-          <Select
-            value={defaultModel}
-            onValueChange={setDefaultModel}
-            disabled={busy}
-          >
-            <SelectTrigger id="provider-model" className="font-mono">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {modelOptions.map((m) => (
-                <SelectItem key={m} value={m} className="font-mono">
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Input
-            id="provider-model"
-            value={defaultModel}
-            disabled={busy}
-            onChange={(e) => setDefaultModel(e.target.value)}
-            placeholder={DEFAULT_MODEL[kind]}
-            className="font-mono"
-          />
+        {/* Free-text so relays / openai-compatible can enter ANY model slug;
+            the suggestions (per-kind + discovered) are offered via datalist, not
+            a locked Select. */}
+        <Input
+          id="provider-model"
+          list="provider-model-suggestions"
+          value={defaultModel}
+          disabled={busy}
+          onChange={(e) => setDefaultModel(e.target.value)}
+          placeholder={DEFAULT_MODEL[kind]}
+          className="font-mono"
+          autoComplete="off"
+        />
+        {modelOptions.length > 0 && (
+          <datalist id="provider-model-suggestions">
+            {modelOptions.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
         )}
       </div>
 
