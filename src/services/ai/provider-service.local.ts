@@ -92,18 +92,39 @@ export function createLocalProviderService(): ProviderService {
       const list = await loadProviders()
       const cfg = list.find((p) => p.id === id)
       if (!cfg) return err('provider not configured')
-      // Resolve config from the list we already hold — no extra invoke, no cycle.
-      const generation = createLocalGenerationService({
-        list: async () => list,
-      })
+
+      // Prefer a MODEL-AGNOSTIC probe for endpoints with an explicit base URL
+      // (openai-compatible / relays): GET `{baseUrl}/models` validates the key +
+      // base URL without depending on the model being a chat model — a chat
+      // `ping` would falsely fail for an image model (e.g. gpt-image). The raw
+      // HTTP status is surfaced so 404 (base URL / missing `/v1`) vs 401 (key)
+      // is obvious.
+      if (cfg.baseUrl) {
+        try {
+          const url = `${cfg.baseUrl.replace(/\/+$/, '')}/models`
+          const res = await invoke<{ status: number; body: string }>(
+            'ai_proxy_request',
+            { providerId: id, kind: cfg.kind, url, method: 'GET', headers: {}, body: null },
+          )
+          if (res.status >= 200 && res.status < 300) {
+            return ok({ model: cfg.defaultModel })
+          }
+          const snippet = res.body.replace(/\s+/g, ' ').trim().slice(0, 140)
+          return err(`HTTP ${res.status}${snippet ? ` · ${snippet}` : ''}`)
+        } catch (error) {
+          return err(error instanceof Error ? error.message : String(error))
+        }
+      }
+
+      // Vendor kinds without a base URL: a tiny text round-trip. Resolve config
+      // from the list we already hold — no extra invoke, no import cycle.
+      const generation = createLocalGenerationService({ list: async () => list })
       const result = await generation.generateText({
         providerId: id,
         model: cfg.defaultModel,
         prompt: 'ping',
       })
-      return isOk(result)
-        ? ok({ model: cfg.defaultModel })
-        : err(result.error)
+      return isOk(result) ? ok({ model: cfg.defaultModel }) : err(result.error)
     },
   }
 }
