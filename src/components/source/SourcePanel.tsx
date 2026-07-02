@@ -25,20 +25,10 @@ export function SourcePanel() {
   const hasSource = useSource().bitmap !== null
   const [mode, setMode] = useState<SourceMode>('import')
 
-  if (hasSource) {
-    return (
-      <div className="flex h-full min-h-0 flex-col gap-3 p-3">
-        <SourceCanvas />
-        <DropZone variant="compact" />
-        <SourceMeta />
-        <Separator />
-        <ParameterControls />
-      </div>
-    )
-  }
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
+      {/* Always visible so "Generate from screenshot" is reachable even with a
+          source loaded (regenerate); the tab is the front door to the loop. */}
       <div className="flex items-center gap-0.5 rounded-lg bg-muted/40 p-0.5">
         <ModeTab active={mode === 'import'} onClick={() => setMode('import')}>
           <Trans id="source.mode_import">Import sheet</Trans>
@@ -48,7 +38,20 @@ export function SourcePanel() {
         </ModeTab>
       </div>
 
-      {mode === 'import' ? <DropZone variant="full" /> : <GeneratePanel />}
+      {mode === 'generate' ? (
+        // On success the new sheet becomes the source → flip back to show it.
+        <GeneratePanel onGenerated={() => setMode('import')} />
+      ) : hasSource ? (
+        <>
+          <SourceCanvas />
+          <DropZone variant="compact" />
+          <SourceMeta />
+          <Separator />
+          <ParameterControls />
+        </>
+      ) : (
+        <DropZone variant="full" />
+      )}
     </div>
   )
 }

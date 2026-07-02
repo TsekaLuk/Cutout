@@ -24,7 +24,12 @@ interface Proto {
   readonly url: string
 }
 
-export function GeneratePanel() {
+interface GeneratePanelProps {
+  /** Called after a sheet is generated + loaded (lets the parent show it). */
+  readonly onGenerated?: () => void
+}
+
+export function GeneratePanel({ onGenerated }: GeneratePanelProps) {
   const { t } = useLingui()
   const settings = useSettingsUI()
   const assignments = useModelAssignments()
@@ -60,10 +65,12 @@ export function GeneratePanel() {
     generate.mutate(
       { bytes, mediaType: proto.file.type || 'image/png', requirement },
       {
-        onSuccess: () =>
+        onSuccess: () => {
           toast.success(
             t({ id: 'generate.toast_done', message: 'Asset sheet generated — slicing…' }),
-          ),
+          )
+          onGenerated?.()
+        },
         onError: (error) =>
           toast.error(
             t({ id: 'generate.toast_failed', message: 'Generation failed' }),
