@@ -14,6 +14,26 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. js-lingui-explicit-id
+#: src/components/topbar/SettingsMenu.tsx
+#~ msgid "settings.about_item"
+#~ msgstr "About"
+
+#. js-lingui-explicit-id
+#: src/components/topbar/SettingsMenu.tsx
+#~ msgid "settings.api_keys"
+#~ msgstr "API Keys / Providers"
+
+#. js-lingui-explicit-id
+#: src/components/settings/ProviderSettingsDialog.tsx
+#~ msgid "settings.dialog_title"
+#~ msgstr "API Keys / Providers"
+
+#. js-lingui-explicit-id
+#: src/components/settings/ProviderSettingsDialog.tsx
+#~ msgid "settings.dialog_list_desc"
+#~ msgstr "Manage model providers and keys (BYOK). Keys are stored securely in the system keychain."
+
+#. js-lingui-explicit-id
 #. placeholder {0}: slices.length
 #: src/components/source/SourceMeta.tsx
 msgid "source.meta_region_count"
@@ -46,11 +66,6 @@ msgid "slices.empty_halve_min_area"
 msgstr "−50% min-area"
 
 #. js-lingui-explicit-id
-#: src/components/topbar/SettingsMenu.tsx
-msgid "settings.about_item"
-msgstr "About"
-
-#. js-lingui-explicit-id
 #: src/components/preview/PreviewToolbar.tsx
 msgid "preview.zoom_actual"
 msgstr "Actual size (1:1)"
@@ -61,17 +76,27 @@ msgid "settings.add"
 msgstr "Add"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.empty_desc"
 msgstr "Add a provider and enter an API key to start using AI features."
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/ModelSlot.tsx
+msgid "settings.model_no_provider"
+msgstr "Add an endpoint above to assign a model."
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.add_provider"
 msgstr "Add provider"
 
 #. js-lingui-explicit-id
-#: src/components/topbar/SettingsMenu.tsx
+#: src/components/settings/SettingsSidebar.tsx
+msgid "settings.section_ai"
+msgstr "AI"
+
+#. js-lingui-explicit-id
+#: src/components/settings/AboutFooter.tsx
 msgid "settings.about_description"
 msgstr "AI-Native UI/UX · Tauri 2 · React 19 — local, offline-first."
 
@@ -101,14 +126,14 @@ msgid "settings.key_label"
 msgstr "API Key"
 
 #. js-lingui-explicit-id
-#: src/components/topbar/SettingsMenu.tsx
-msgid "settings.api_keys"
-msgstr "API Keys / Providers"
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.keychain_trust"
+msgstr "API keys are stored only in your OS keychain and injected in the native layer — they never enter the web page."
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
-msgid "settings.dialog_title"
-msgstr "API Keys / Providers"
+#: src/components/settings/SettingsDialog.tsx
+msgid "settings.dialog_a11y_desc"
+msgstr "Application preferences and AI providers."
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
@@ -125,6 +150,11 @@ msgstr "Bytes"
 #: src/components/settings/ProviderRow.tsx
 msgid "settings.cancel"
 msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.model_chat_label"
+msgstr "Chat / Understanding"
 
 #. js-lingui-explicit-id
 #: src/hooks/useCopyPng.ts
@@ -172,6 +202,11 @@ msgid "source.params_aria"
 msgstr "Cutout parameters"
 
 #. js-lingui-explicit-id
+#: src/components/settings/sections/GeneralSection.tsx
+msgid "settings.reset_params_label"
+msgstr "Cutout parameters"
+
+#. js-lingui-explicit-id
 #: src/components/topbar/ThemeToggle.tsx
 msgid "topbar.theme_dark_mode"
 msgstr "Dark mode"
@@ -207,9 +242,14 @@ msgid "settings.edit_action"
 msgstr "Edit"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.dialog_edit_title"
 msgstr "Edit provider"
+
+#. js-lingui-explicit-id
+#: src/components/settings/ModelSlot.tsx
+msgid "settings.model_pick_endpoint"
+msgstr "Endpoint"
 
 #. js-lingui-explicit-id
 #: src/components/settings/KeyField.tsx
@@ -257,7 +297,7 @@ msgid "export.toast_partial"
 msgstr "Exported {savedCount} of {total}"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.load_failed"
 msgstr "Failed to load providers"
 
@@ -265,6 +305,11 @@ msgstr "Failed to load providers"
 #: src/components/preview/PreviewToolbar.tsx
 msgid "preview.zoom_fit"
 msgstr "Fit to pane"
+
+#. js-lingui-explicit-id
+#: src/components/settings/SettingsSidebar.tsx
+msgid "settings.section_general"
+msgstr "General"
 
 #. js-lingui-explicit-id
 #: src/components/settings/KeyField.tsx
@@ -275,6 +320,11 @@ msgstr "Hide"
 #: src/components/status/StatusBar.tsx
 msgid "status.state_idle"
 msgstr "idle"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.model_image_label"
+msgstr "Image generation"
 
 #. js-lingui-explicit-id
 #: src/components/topbar/TopBarActions.tsx
@@ -297,12 +347,12 @@ msgid "slices.inspector_tab"
 msgstr "Inspector"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.dialog_form_desc"
 msgstr "Keys are stored only in the system keychain, never written to the web page or disk in plaintext."
 
 #. js-lingui-explicit-id
-#: src/components/common/LanguageSwitcher.tsx
+#: src/components/settings/sections/GeneralSection.tsx
 msgid "topbar.language_label"
 msgstr "Language"
 
@@ -312,9 +362,14 @@ msgid "topbar.theme_light_mode"
 msgstr "Light mode"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
-msgid "settings.dialog_list_desc"
-msgstr "Manage model providers and keys (BYOK). Keys are stored securely in the system keychain."
+#: src/components/settings/ModelSlot.tsx
+msgid "settings.model_slug_placeholder"
+msgstr "model"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.models_heading"
+msgstr "Models"
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
@@ -332,7 +387,7 @@ msgid "inspector.name_label"
 msgstr "Name"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.empty_title"
 msgstr "No providers configured yet"
 
@@ -362,6 +417,11 @@ msgid "source.params_heading"
 msgstr "Parameters"
 
 #. js-lingui-explicit-id
+#: src/components/settings/sections/GeneralSection.tsx
+msgid "settings.reset_done_toast"
+msgstr "Parameters reset"
+
+#. js-lingui-explicit-id
 #: src/components/inspector/SliceDimensions.tsx
 msgid "inspector.dim_position"
 msgstr "Position"
@@ -370,6 +430,11 @@ msgstr "Position"
 #: src/components/preview/PreviewPanel.tsx
 msgid "preview.heading"
 msgstr "Preview"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.model_image_hint"
+msgstr "Produces images (e.g. regenerated asset sheets)."
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
@@ -422,7 +487,7 @@ msgid "source.params_reset"
 msgstr "Reset"
 
 #. js-lingui-explicit-id
-#: src/components/topbar/SettingsMenu.tsx
+#: src/components/settings/sections/GeneralSection.tsx
 msgid "settings.reset_params"
 msgstr "Reset parameters"
 
@@ -430,6 +495,11 @@ msgstr "Reset parameters"
 #: src/components/source/ParameterControls.tsx
 msgid "source.params_reset_title"
 msgstr "Reset parameters to defaults"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/GeneralSection.tsx
+msgid "settings.reset_params_hint"
+msgstr "Restore threshold, min area, gap and padding to defaults."
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
@@ -447,6 +517,7 @@ msgid "inspector.empty_has_slices"
 msgstr "Select a slice to rename, inspect, and export it."
 
 #. js-lingui-explicit-id
+#: src/components/settings/SettingsDialog.tsx
 #: src/components/topbar/SettingsMenu.tsx
 msgid "settings.menu_label"
 msgstr "Settings"
@@ -489,6 +560,11 @@ msgid "settings.test_action"
 msgstr "Test"
 
 #. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.model_chat_hint"
+msgstr "Text, reasoning and vision — one multimodal model."
+
+#. js-lingui-explicit-id
 #: src/lib/image.ts
 msgid "image.error_decode_failed"
 msgstr "That file could not be decoded as an image."
@@ -507,6 +583,11 @@ msgstr "The parameters may be too strict for this sheet. Try loosening them:"
 #: src/components/preview/PreviewCanvas.tsx
 msgid "preview.empty_hint"
 msgstr "The transparent preview appears here once a sheet is analyzed."
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/GeneralSection.tsx
+msgid "settings.theme_label"
+msgstr "Theme"
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderRow.tsx
@@ -544,11 +625,13 @@ msgid "source.meta_untitled"
 msgstr "untitled"
 
 #. js-lingui-explicit-id
+#: src/components/settings/ProviderForm.tsx
 #: src/components/settings/ProviderRow.tsx
 msgid "settings.status_failed"
 msgstr "Verification failed"
 
 #. js-lingui-explicit-id
+#: src/components/settings/ProviderForm.tsx
 #: src/components/settings/ProviderRow.tsx
 msgid "settings.status_verified"
 msgstr "Verified"

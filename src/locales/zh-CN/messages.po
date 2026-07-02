@@ -14,6 +14,26 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. js-lingui-explicit-id
+#: src/components/topbar/SettingsMenu.tsx
+#~ msgid "settings.about_item"
+#~ msgstr "关于"
+
+#. js-lingui-explicit-id
+#: src/components/topbar/SettingsMenu.tsx
+#~ msgid "settings.api_keys"
+#~ msgstr "API Keys / 提供方"
+
+#. js-lingui-explicit-id
+#: src/components/settings/ProviderSettingsDialog.tsx
+#~ msgid "settings.dialog_title"
+#~ msgstr "API Keys / 提供方"
+
+#. js-lingui-explicit-id
+#: src/components/settings/ProviderSettingsDialog.tsx
+#~ msgid "settings.dialog_list_desc"
+#~ msgstr "管理模型提供方与密钥（BYOK）。密钥安全存于系统钥匙串。"
+
+#. js-lingui-explicit-id
 #. placeholder {0}: slices.length
 #: src/components/source/SourceMeta.tsx
 msgid "source.meta_region_count"
@@ -46,11 +66,6 @@ msgid "slices.empty_halve_min_area"
 msgstr "最小面积 −50%"
 
 #. js-lingui-explicit-id
-#: src/components/topbar/SettingsMenu.tsx
-msgid "settings.about_item"
-msgstr "关于"
-
-#. js-lingui-explicit-id
 #: src/components/preview/PreviewToolbar.tsx
 msgid "preview.zoom_actual"
 msgstr "实际大小 (1:1)"
@@ -61,17 +76,27 @@ msgid "settings.add"
 msgstr "添加"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.empty_desc"
 msgstr "添加一个提供方并填入 API Key 即可开始使用 AI 功能。"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/ModelSlot.tsx
+msgid "settings.model_no_provider"
+msgstr "先在上方添加一个端点,再分配模型。"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.add_provider"
 msgstr "添加提供方"
 
 #. js-lingui-explicit-id
-#: src/components/topbar/SettingsMenu.tsx
+#: src/components/settings/SettingsSidebar.tsx
+msgid "settings.section_ai"
+msgstr "AI"
+
+#. js-lingui-explicit-id
+#: src/components/settings/AboutFooter.tsx
 msgid "settings.about_description"
 msgstr "AI 原生 UI/UX · Tauri 2 · React 19 — 本地、离线优先。"
 
@@ -101,14 +126,14 @@ msgid "settings.key_label"
 msgstr "API Key"
 
 #. js-lingui-explicit-id
-#: src/components/topbar/SettingsMenu.tsx
-msgid "settings.api_keys"
-msgstr "API Keys / 提供方"
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.keychain_trust"
+msgstr "API 密钥仅存于系统钥匙串,并在原生层注入——永不进入网页。"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
-msgid "settings.dialog_title"
-msgstr "API Keys / 提供方"
+#: src/components/settings/SettingsDialog.tsx
+msgid "settings.dialog_a11y_desc"
+msgstr "应用偏好与 AI 服务商。"
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
@@ -125,6 +150,11 @@ msgstr "字节"
 #: src/components/settings/ProviderRow.tsx
 msgid "settings.cancel"
 msgstr "取消"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.model_chat_label"
+msgstr "对话 / 理解"
 
 #. js-lingui-explicit-id
 #: src/hooks/useCopyPng.ts
@@ -172,6 +202,11 @@ msgid "source.params_aria"
 msgstr "抠图参数"
 
 #. js-lingui-explicit-id
+#: src/components/settings/sections/GeneralSection.tsx
+msgid "settings.reset_params_label"
+msgstr "切图参数"
+
+#. js-lingui-explicit-id
 #: src/components/topbar/ThemeToggle.tsx
 msgid "topbar.theme_dark_mode"
 msgstr "深色模式"
@@ -207,9 +242,14 @@ msgid "settings.edit_action"
 msgstr "编辑"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.dialog_edit_title"
 msgstr "编辑提供方"
+
+#. js-lingui-explicit-id
+#: src/components/settings/ModelSlot.tsx
+msgid "settings.model_pick_endpoint"
+msgstr "端点"
 
 #. js-lingui-explicit-id
 #: src/components/settings/KeyField.tsx
@@ -257,7 +297,7 @@ msgid "export.toast_partial"
 msgstr "已导出 {savedCount} / {total}"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.load_failed"
 msgstr "加载提供方失败"
 
@@ -265,6 +305,11 @@ msgstr "加载提供方失败"
 #: src/components/preview/PreviewToolbar.tsx
 msgid "preview.zoom_fit"
 msgstr "适应窗口"
+
+#. js-lingui-explicit-id
+#: src/components/settings/SettingsSidebar.tsx
+msgid "settings.section_general"
+msgstr "通用"
 
 #. js-lingui-explicit-id
 #: src/components/settings/KeyField.tsx
@@ -275,6 +320,11 @@ msgstr "隐藏"
 #: src/components/status/StatusBar.tsx
 msgid "status.state_idle"
 msgstr "空闲"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.model_image_label"
+msgstr "图像生成"
 
 #. js-lingui-explicit-id
 #: src/components/topbar/TopBarActions.tsx
@@ -297,12 +347,12 @@ msgid "slices.inspector_tab"
 msgstr "检视"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.dialog_form_desc"
 msgstr "密钥仅保存在系统钥匙串，永不进入网页或磁盘明文。"
 
 #. js-lingui-explicit-id
-#: src/components/common/LanguageSwitcher.tsx
+#: src/components/settings/sections/GeneralSection.tsx
 msgid "topbar.language_label"
 msgstr "语言"
 
@@ -312,9 +362,14 @@ msgid "topbar.theme_light_mode"
 msgstr "浅色模式"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
-msgid "settings.dialog_list_desc"
-msgstr "管理模型提供方与密钥（BYOK）。密钥安全存于系统钥匙串。"
+#: src/components/settings/ModelSlot.tsx
+msgid "settings.model_slug_placeholder"
+msgstr "模型"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.models_heading"
+msgstr "模型"
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
@@ -332,7 +387,7 @@ msgid "inspector.name_label"
 msgstr "名称"
 
 #. js-lingui-explicit-id
-#: src/components/settings/ProviderSettingsDialog.tsx
+#: src/components/settings/sections/AiSection.tsx
 msgid "settings.empty_title"
 msgstr "尚未配置提供方"
 
@@ -362,6 +417,11 @@ msgid "source.params_heading"
 msgstr "参数"
 
 #. js-lingui-explicit-id
+#: src/components/settings/sections/GeneralSection.tsx
+msgid "settings.reset_done_toast"
+msgstr "参数已重置"
+
+#. js-lingui-explicit-id
 #: src/components/inspector/SliceDimensions.tsx
 msgid "inspector.dim_position"
 msgstr "位置"
@@ -370,6 +430,11 @@ msgstr "位置"
 #: src/components/preview/PreviewPanel.tsx
 msgid "preview.heading"
 msgstr "预览"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.model_image_hint"
+msgstr "生成图像(如重绘的素材总览图)。"
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
@@ -422,7 +487,7 @@ msgid "source.params_reset"
 msgstr "重置"
 
 #. js-lingui-explicit-id
-#: src/components/topbar/SettingsMenu.tsx
+#: src/components/settings/sections/GeneralSection.tsx
 msgid "settings.reset_params"
 msgstr "重置参数"
 
@@ -430,6 +495,11 @@ msgstr "重置参数"
 #: src/components/source/ParameterControls.tsx
 msgid "source.params_reset_title"
 msgstr "将参数重置为默认值"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/GeneralSection.tsx
+msgid "settings.reset_params_hint"
+msgstr "将白底阈值、最小面积、合并间距与内边距恢复为默认值。"
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
@@ -447,6 +517,7 @@ msgid "inspector.empty_has_slices"
 msgstr "选择一个切片以重命名、检视并导出。"
 
 #. js-lingui-explicit-id
+#: src/components/settings/SettingsDialog.tsx
 #: src/components/topbar/SettingsMenu.tsx
 msgid "settings.menu_label"
 msgstr "设置"
@@ -489,6 +560,11 @@ msgid "settings.test_action"
 msgstr "校验"
 
 #. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.model_chat_hint"
+msgstr "文本、推理与读图——同一个多模态模型。"
+
+#. js-lingui-explicit-id
 #: src/lib/image.ts
 msgid "image.error_decode_failed"
 msgstr "该文件无法解码为图像。"
@@ -507,6 +583,11 @@ msgstr "参数对该素材图可能过于严格，试试放宽："
 #: src/components/preview/PreviewCanvas.tsx
 msgid "preview.empty_hint"
 msgstr "分析素材图后，透明预览将显示在此处。"
+
+#. js-lingui-explicit-id
+#: src/components/settings/sections/GeneralSection.tsx
+msgid "settings.theme_label"
+msgstr "主题"
 
 #. js-lingui-explicit-id
 #: src/components/settings/ProviderRow.tsx
@@ -544,11 +625,13 @@ msgid "source.meta_untitled"
 msgstr "未命名"
 
 #. js-lingui-explicit-id
+#: src/components/settings/ProviderForm.tsx
 #: src/components/settings/ProviderRow.tsx
 msgid "settings.status_failed"
 msgstr "校验失败"
 
 #. js-lingui-explicit-id
+#: src/components/settings/ProviderForm.tsx
 #: src/components/settings/ProviderRow.tsx
 msgid "settings.status_verified"
 msgstr "校验通过"
