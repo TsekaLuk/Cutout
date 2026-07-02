@@ -75,8 +75,8 @@ export function AppShell() {
   useHotkeys(handlers)
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <TopBar onRerun={rerun} />
+    <div className="flex h-full min-h-0 flex-col bg-[#080c11] text-foreground">
+      <TopBar />
       <WorkspaceLayout />
       <StatusBar />
     </div>
