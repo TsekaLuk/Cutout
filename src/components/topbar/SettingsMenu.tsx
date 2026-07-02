@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { Settings2, RotateCcw, Info, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
+import { Trans, useLingui } from '@lingui/react/macro'
 import { useStore } from '@/store'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,8 +19,10 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { ProviderSettingsDialog } from '@/components/settings/ProviderSettingsDialog'
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher'
 
 export function SettingsMenu() {
+  const { t } = useLingui()
   const resetParams = useStore((s) => s.resetParams)
   const [providersOpen, setProvidersOpen] = useState(false)
 
@@ -27,30 +30,41 @@ export function SettingsMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Settings">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t({ id: 'settings.menu_label', message: 'Settings' })}
+          >
             <Settings2 />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel>Settings</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            <Trans id="settings.menu_label">Settings</Trans>
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => resetParams()}>
             <RotateCcw />
-            Reset parameters
+            <Trans id="settings.reset_params">Reset parameters</Trans>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setProvidersOpen(true)}>
             <KeyRound />
-            API Keys / Providers
+            <Trans id="settings.api_keys">API Keys / Providers</Trans>
           </DropdownMenuItem>
+          <LanguageSwitcher variant="menu" />
           <DropdownMenuItem
             onSelect={() =>
               toast('Cutout', {
-                description: 'AI-Native UI/UX · Tauri 2 · React 19 — local, offline-first.',
+                description: t({
+                  id: 'settings.about_description',
+                  message:
+                    'AI-Native UI/UX · Tauri 2 · React 19 — local, offline-first.',
+                }),
               })
             }
           >
             <Info />
-            About
+            <Trans id="settings.about_item">About</Trans>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

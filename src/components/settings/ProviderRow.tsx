@@ -14,6 +14,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Pencil, Trash2, Wifi } from 'lucide-react'
+import { Trans, useLingui } from '@lingui/react/macro'
 import { cn } from '@/lib/utils'
 import type { ProviderConfig } from '@/services/ai/provider-types'
 import {
@@ -37,16 +38,21 @@ import {
 
 type TestState = 'idle' | 'ok' | 'fail'
 
-interface StatusView {
-  readonly text: string
-  readonly dot: string
+type StatusKind = 'unconfigured' | 'configured' | 'ok' | 'fail'
+
+/** Pure status derivation; text is resolved via the catalog in the component. */
+function statusKind(hasKey: boolean, test: TestState): StatusKind {
+  if (!hasKey) return 'unconfigured'
+  if (test === 'ok') return 'ok'
+  if (test === 'fail') return 'fail'
+  return 'configured'
 }
 
-function statusView(hasKey: boolean, test: TestState): StatusView {
-  if (!hasKey) return { text: '未配置', dot: 'bg-muted-foreground/40' }
-  if (test === 'ok') return { text: '校验通过', dot: 'bg-emerald-500' }
-  if (test === 'fail') return { text: '校验失败', dot: 'bg-destructive' }
-  return { text: '已配置', dot: 'bg-amber-500' }
+const STATUS_DOT: Record<StatusKind, string> = {
+  unconfigured: 'bg-muted-foreground/40',
+  configured: 'bg-amber-500',
+  ok: 'bg-emerald-500',
+  fail: 'bg-destructive',
 }
 
 interface ProviderRowProps {
@@ -55,37 +61,57 @@ interface ProviderRowProps {
 }
 
 export function ProviderRow({ provider, onEdit }: ProviderRowProps) {
+  const { t } = useLingui()
   const [test, setTest] = useState<TestState>('idle')
   const status = useProviderStatus(provider.id)
   const testKey = useTestKey()
   const removeProvider = useRemoveProvider()
 
   const hasKey = status.data === true
-  const view = statusView(hasKey, test)
+  const kind = statusKind(hasKey, test)
+  const statusText: Record<StatusKind, string> = {
+    unconfigured: t({ id: 'settings.status_unconfigured', message: 'Not configured' }),
+    configured: t({ id: 'settings.status_configured', message: 'Configured' }),
+    ok: t({ id: 'settings.status_verified', message: 'Verified' }),
+    fail: t({ id: 'settings.status_failed', message: 'Verification failed' }),
+  }
 
   async function onTest() {
     try {
       const { model } = await testKey.mutateAsync(provider.id)
       setTest('ok')
-      toast.success('校验通过', { description: `${provider.label} · ${model}` })
+      toast.success(t({ id: 'settings.status_verified', message: 'Verified' }), {
+        description: `${provider.label} · ${model}`,
+      })
     } catch (error) {
       setTest('fail')
-      toast.error('校验失败', {
-        description: error instanceof Error ? error.message : String(error),
-      })
+      toast.error(
+        t({ id: 'settings.status_failed', message: 'Verification failed' }),
+        {
+          description: error instanceof Error ? error.message : String(error),
+        },
+      )
     }
   }
 
   async function onRemove() {
     try {
       await removeProvider.mutateAsync(provider.id)
-      toast.success('已删除提供方', { description: provider.label })
+      toast.success(
+        t({ id: 'settings.provider_removed_toast', message: 'Provider removed' }),
+        { description: provider.label },
+      )
     } catch (error) {
-      toast.error('删除失败', {
-        description: error instanceof Error ? error.message : String(error),
-      })
+      toast.error(
+        t({ id: 'settings.remove_failed_toast', message: 'Remove failed' }),
+        {
+          description: error instanceof Error ? error.message : String(error),
+        },
+      )
     }
   }
+
+  const label = provider.label
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card/40 px-3 py-2">
@@ -98,10 +124,10 @@ export function ProviderRow({ provider, onEdit }: ProviderRowProps) {
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
           <span
-            className={cn('size-1.5 shrink-0 rounded-full', view.dot)}
+            className={cn('size-1.5 shrink-0 rounded-full', STATUS_DOT[kind])}
             aria-hidden
           />
-          <span>{view.text}</span>
+          <span>{statusText[kind]}</span>
           <span className="text-muted-foreground/50">·</span>
           <span className="truncate font-mono">{provider.defaultModel}</span>
         </div>
@@ -113,16 +139,16 @@ export function ProviderRow({ provider, onEdit }: ProviderRowProps) {
           size="sm"
           onClick={onTest}
           disabled={!hasKey || testKey.isPending}
-          aria-label="校验"
+          aria-label={t({ id: 'settings.test_action', message: 'Test' })}
         >
           {testKey.isPending ? <Loader2 className="animate-spin" /> : <Wifi />}
-          校验
+          <Trans id="settings.test_action">Test</Trans>
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={() => onEdit(provider)}
-          aria-label="编辑"
+          aria-label={t({ id: 'settings.edit_action', message: 'Edit' })}
         >
           <Pencil />
         </Button>
@@ -131,7 +157,7 @@ export function ProviderRow({ provider, onEdit }: ProviderRowProps) {
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="删除"
+              aria-label={t({ id: 'settings.remove_action', message: 'Remove' })}
               className="text-muted-foreground hover:text-destructive"
             >
               <Trash2 />
@@ -139,15 +165,22 @@ export function ProviderRow({ provider, onEdit }: ProviderRowProps) {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>删除提供方？</AlertDialogTitle>
+              <AlertDialogTitle>
+                <Trans id="settings.remove_confirm_title">Remove provider?</Trans>
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                将删除「{provider.label}」的配置及其保存在系统钥匙串中的密钥，此操作无法撤销。
+                <Trans id="settings.remove_confirm_desc">
+                  This removes the configuration for “{label}” and its key stored
+                  in the system keychain. This action cannot be undone.
+                </Trans>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogCancel>
+                <Trans id="settings.cancel">Cancel</Trans>
+              </AlertDialogCancel>
               <AlertDialogAction variant="destructive" onClick={onRemove}>
-                删除
+                <Trans id="settings.remove_action">Remove</Trans>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

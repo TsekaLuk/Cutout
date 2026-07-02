@@ -16,6 +16,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { Trans, useLingui } from '@lingui/react/macro'
 import {
   PROVIDER_KINDS,
   type ProviderConfig,
@@ -40,13 +41,16 @@ import {
 } from '@/components/ui/select'
 import { KeyField } from './KeyField'
 
-/** Human-facing kind labels (Chinese-friendly, consistent with the app). */
-const KIND_LABEL: Record<ProviderKind, string> = {
+/**
+ * Brand kind labels. These are product names and stay verbatim across locales;
+ * the one translatable kind (`openai-compatible`) is resolved via the `t` macro
+ * inside the component so it participates in the catalog.
+ */
+const KIND_BRAND: Record<Exclude<ProviderKind, 'openai-compatible'>, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   google: 'Google',
   gateway: 'AI Gateway',
-  'openai-compatible': 'OpenAI 兼容',
 }
 
 /** Is `model` one of the known per-kind defaults? (safe to auto-replace) */
@@ -62,6 +66,7 @@ interface ProviderFormProps {
 }
 
 export function ProviderForm({ initial, onDone }: ProviderFormProps) {
+  const { t } = useLingui()
   const isEdit = initial !== undefined
   const [kind, setKind] = useState<ProviderKind>(initial?.kind ?? 'anthropic')
   const [label, setLabel] = useState(initial?.label ?? '')
@@ -88,6 +93,15 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
     setDefaultModel((cur) =>
       cur.trim() === '' || isKnownDefault(cur) ? DEFAULT_MODEL[nextKind] : cur,
     )
+  }
+
+  function kindLabel(k: ProviderKind): string {
+    return k === 'openai-compatible'
+      ? t({
+          id: 'settings.provider_kind_openai_compatible',
+          message: 'OpenAI Compatible',
+        })
+      : KIND_BRAND[k]
   }
 
   const needsBaseUrl = kind === 'openai-compatible'
@@ -118,13 +132,18 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
         await setKey.mutateAsync({ id: saved.id, secret })
         setSecret('') // wipe the secret from JS the moment Rust has it
       }
-      toast.success(isEdit ? '已更新提供方' : '已添加提供方', {
-        description: saved.label,
-      })
+      toast.success(
+        isEdit
+          ? t({ id: 'settings.provider_updated_toast', message: 'Provider updated' })
+          : t({ id: 'settings.provider_added_toast', message: 'Provider added' }),
+        {
+          description: saved.label,
+        },
+      )
       onDone()
     } catch (error) {
       setSecret('') // never keep a secret around after a failed attempt
-      toast.error('保存失败', {
+      toast.error(t({ id: 'settings.save_failed_toast', message: 'Save failed' }), {
         description: error instanceof Error ? error.message : String(error),
       })
     }
@@ -133,19 +152,26 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="provider-label">名称</Label>
+        <Label htmlFor="provider-label">
+          <Trans id="settings.provider_name_label">Name</Trans>
+        </Label>
         <Input
           id="provider-label"
           value={label}
           disabled={busy}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="我的 Anthropic"
+          placeholder={t({
+            id: 'settings.provider_name_placeholder',
+            message: 'My Anthropic',
+          })}
           autoFocus
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="provider-kind">类型</Label>
+        <Label htmlFor="provider-kind">
+          <Trans id="settings.provider_kind_label">Type</Trans>
+        </Label>
         <Select value={kind} onValueChange={onKindChange} disabled={busy}>
           <SelectTrigger id="provider-kind">
             <SelectValue />
@@ -153,7 +179,7 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
           <SelectContent>
             {PROVIDER_KINDS.map((k) => (
               <SelectItem key={k} value={k}>
-                {KIND_LABEL[k]}
+                {kindLabel(k)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -162,7 +188,9 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
 
       {needsBaseUrl && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="provider-baseurl">Base URL</Label>
+          <Label htmlFor="provider-baseurl">
+            <Trans id="settings.provider_baseurl_label">Base URL</Trans>
+          </Label>
           <Input
             id="provider-baseurl"
             value={baseUrl}
@@ -175,7 +203,9 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
       )}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="provider-model">默认模型</Label>
+        <Label htmlFor="provider-model">
+          <Trans id="settings.provider_model_label">Default model</Trans>
+        </Label>
         {modelOptions.length > 0 ? (
           <Select
             value={defaultModel}
@@ -215,11 +245,15 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
 
       <div className="mt-1 flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onDone} disabled={busy}>
-          取消
+          <Trans id="settings.cancel">Cancel</Trans>
         </Button>
         <Button type="submit" disabled={!canSave}>
           {busy && <Loader2 className="animate-spin" />}
-          {isEdit ? '保存' : '添加'}
+          {isEdit ? (
+            <Trans id="settings.save">Save</Trans>
+          ) : (
+            <Trans id="settings.add">Add</Trans>
+          )}
         </Button>
       </div>
     </form>

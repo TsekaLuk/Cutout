@@ -9,6 +9,7 @@
  *    let `useParamAutoRun` rerun automatically.
  */
 import { PackageOpen } from 'lucide-react'
+import { Trans } from '@lingui/react/macro'
 import { useStore } from '@/store'
 import { useSource } from '@/store/selectors'
 import { Button } from '@/components/ui/button'
@@ -34,24 +35,30 @@ export function SliceGridEmpty() {
       {hasSource ? (
         <>
           <div className="grid gap-1">
-            <p className="text-sm font-medium">No regions found</p>
+            <p className="text-sm font-medium">
+              <Trans id="slices.empty_no_regions_title">No regions found</Trans>
+            </p>
             <p className="max-w-64 text-xs text-muted-foreground">
-              The parameters may be too strict for this sheet. Try loosening
-              them:
+              <Trans id="slices.empty_no_regions_hint">
+                The parameters may be too strict for this sheet. Try loosening
+                them:
+              </Trans>
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
             <Button variant="outline" size="sm" onClick={lowerThreshold}>
-              −10 threshold
+              <Trans id="slices.empty_lower_threshold">−10 threshold</Trans>
             </Button>
             <Button variant="outline" size="sm" onClick={halveMinArea}>
-              −50% min-area
+              <Trans id="slices.empty_halve_min_area">−50% min-area</Trans>
             </Button>
           </div>
         </>
       ) : (
         <p className="max-w-56 text-xs text-muted-foreground">
-          Drop an asset sheet into the left pane to start slicing.
+          <Trans id="slices.empty_no_source">
+            Drop an asset sheet into the left pane to start slicing.
+          </Trans>
         </p>
       )}
     </div>

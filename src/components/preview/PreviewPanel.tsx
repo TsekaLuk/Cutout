@@ -6,6 +6,7 @@
  * output editing — that is the right rail's job.
  */
 import { useState } from 'react'
+import { Trans } from '@lingui/react/macro'
 import { AlertTriangle } from 'lucide-react'
 import { useStore } from '@/store'
 import { usePreviewBitmap, useStatus, selectError } from '@/store/selectors'
@@ -26,7 +27,7 @@ export function PreviewPanel() {
       <header className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Preview
+            <Trans id="preview.heading">Preview</Trans>
           </h2>
           <PreviewMeta />
         </div>

@@ -10,7 +10,11 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "i18n:extract": "lingui extract",
+    "i18n:extract:clean": "lingui extract --clean",
+    "i18n:compile": "lingui compile",
+    "i18n:ci": "lingui extract --clean && git diff --exit-code src/locales"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.92",
@@ -18,10 +22,14 @@
     "@ai-sdk/google": "^3.0.88",
     "@ai-sdk/openai": "^3.0.80",
     "@fontsource-variable/geist": "^5.2.9",
+    "@lingui/core": "6.4.0",
+    "@lingui/react": "6.4.0",
     "@tanstack/react-query": "^5.101.2",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "~2",
     "@tauri-apps/plugin-fs": "~2",
+    "@tauri-apps/plugin-os": "~2",
+    "@tauri-apps/plugin-store": "~2",
     "ai": "^6.0.218",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -40,6 +48,12 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@lingui/babel-plugin-lingui-macro": "6.4.0",
+    "@lingui/cli": "6.4.0",
+    "@lingui/conf": "6.4.0",
+    "@lingui/format-po": "6.4.0",
+    "@lingui/vite-plugin": "6.4.0",
+    "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.2",
     "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^24.13.2",

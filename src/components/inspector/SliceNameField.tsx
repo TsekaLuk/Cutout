@@ -7,6 +7,7 @@
  * focuses + selects the field.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Trans } from '@lingui/react/macro'
 import { useStore } from '@/store'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,7 +51,7 @@ export function SliceNameField({ slice }: SliceNameFieldProps) {
   return (
     <div className="grid gap-1">
       <Label htmlFor="slice-name" className="text-[10px] tracking-wide text-muted-foreground uppercase">
-        Name
+        <Trans id="inspector.name_label">Name</Trans>
       </Label>
       <Input
         id="slice-name"

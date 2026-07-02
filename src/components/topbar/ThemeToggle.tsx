@@ -7,6 +7,7 @@
  */
 import { Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { Trans, useLingui } from '@lingui/react/macro'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/tooltip'
 
 export function ThemeToggle() {
+  const { t } = useLingui()
   const { resolvedTheme, setTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
 
@@ -24,14 +26,22 @@ export function ThemeToggle() {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={
+            isDark
+              ? t({ id: 'topbar.theme_to_light', message: 'Switch to light mode' })
+              : t({ id: 'topbar.theme_to_dark', message: 'Switch to dark mode' })
+          }
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
         >
           {isDark ? <Sun /> : <Moon />}
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        {isDark ? 'Light mode' : 'Dark mode'}
+        {isDark ? (
+          <Trans id="topbar.theme_light_mode">Light mode</Trans>
+        ) : (
+          <Trans id="topbar.theme_dark_mode">Dark mode</Trans>
+        )}
       </TooltipContent>
     </Tooltip>
   )

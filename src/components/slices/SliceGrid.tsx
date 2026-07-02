@@ -7,6 +7,7 @@
  * Selection lives in the store; arrow-key navigation is driven from AppShell's
  * hotkeys against `data-slice-id`, so the grid itself stays presentational.
  */
+import { useLingui } from '@lingui/react/macro'
 import { useSlices, useStatus } from '@/store/selectors'
 import { useSource } from '@/store/selectors'
 import { SliceCard } from './SliceCard'
@@ -14,6 +15,7 @@ import { SliceGridEmpty } from './SliceGridEmpty'
 import { SliceGridSkeleton } from './SliceGridSkeleton'
 
 export function SliceGrid() {
+  const { t } = useLingui()
   const slices = useSlices()
   const status = useStatus()
   const hasSource = useSource().bitmap !== null
@@ -30,7 +32,7 @@ export function SliceGrid() {
   return (
     <div
       role="listbox"
-      aria-label="Slices"
+      aria-label={t({ id: 'slices.heading', message: 'Slices' })}
       aria-multiselectable={false}
       className="grid grid-cols-2 gap-2 p-2 xl:grid-cols-3"
     >

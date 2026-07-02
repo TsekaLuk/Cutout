@@ -11,6 +11,7 @@
  */
 import { useCallback, useState } from 'react'
 import { ImagePlus } from 'lucide-react'
+import { Trans, useLingui } from '@lingui/react/macro'
 import { cn } from '@/lib/utils'
 import { useImageImport } from '@/hooks/useImageImport'
 
@@ -20,6 +21,7 @@ export interface DropZoneProps {
 }
 
 export function DropZone({ variant = 'full' }: DropZoneProps) {
+  const { t } = useLingui()
   const { importFile, openPicker, inputProps } = useImageImport()
   const [dragging, setDragging] = useState(false)
 
@@ -52,7 +54,10 @@ export function DropZone({ variant = 'full' }: DropZoneProps) {
       onDrop={onDrop}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
-      aria-label="Import image — drop a file or click to browse"
+      aria-label={t({
+        id: 'source.dropzone_aria',
+        message: 'Import image — drop a file or click to browse',
+      })}
       className={cn(
         'group flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-muted-foreground transition-colors outline-none',
         'hover:border-ring/60 hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
@@ -63,12 +68,18 @@ export function DropZone({ variant = 'full' }: DropZoneProps) {
       <ImagePlus className={compact ? 'size-4' : 'size-7 opacity-70'} />
       <span className={cn('text-center', compact ? 'text-xs' : 'text-sm')}>
         {compact ? (
-          'Drop or click to replace'
+          <Trans id="source.dropzone_replace">Drop or click to replace</Trans>
         ) : (
           <>
-            <span className="font-medium text-foreground">Drop an asset sheet</span>
+            <span className="font-medium text-foreground">
+              <Trans id="source.dropzone_title">Drop an asset sheet</Trans>
+            </span>
             <br />
-            <span className="text-xs">or click to browse · PNG, JPEG, WebP</span>
+            <span className="text-xs">
+              <Trans id="source.dropzone_hint">
+                or click to browse · PNG, JPEG, WebP
+              </Trans>
+            </span>
           </>
         )}
       </span>

@@ -7,6 +7,7 @@
  * secondary mirror.
  */
 import { Download, DownloadCloud } from 'lucide-react'
+import { Trans, useLingui } from '@lingui/react/macro'
 import { Button } from '@/components/ui/button'
 import { useExport } from '@/hooks/useExport'
 import { useSlices } from '@/store/selectors'
@@ -17,6 +18,7 @@ export interface ExportBarProps {
 }
 
 export function ExportBar({ slice }: ExportBarProps) {
+  const { t } = useLingui()
   const { exportOne, exportAll, exportOnePending, exportAllPending } =
     useExport()
   const total = useSlices().length
@@ -30,17 +32,20 @@ export function ExportBar({ slice }: ExportBarProps) {
         onClick={() => exportOne(slice.id)}
       >
         <Download />
-        Export slice
+        <Trans id="inspector.export_slice">Export slice</Trans>
       </Button>
       <Button
         variant="outline"
         size="sm"
         disabled={exportAllPending || total === 0}
         onClick={exportAll}
-        title="Export all slices"
+        title={t({
+          id: 'inspector.export_all_tooltip',
+          message: 'Export all slices',
+        })}
       >
         <DownloadCloud />
-        All ({total})
+        <Trans id="inspector.export_all_button">All ({total})</Trans>
       </Button>
     </div>
   )

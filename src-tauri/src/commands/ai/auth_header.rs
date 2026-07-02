@@ -34,8 +34,7 @@ pub fn auth_headers(kind: &str, secret: &str) -> Option<Vec<(String, String)>> {
 /// we strip any inbound value and inject our own from the keychain. This stops a
 /// dummy `x-api-key: __managed__` (or a malicious auth header) from leaking
 /// through or shadowing the real injected credential.
-pub const STRIPPED_INBOUND_HEADERS: &[&str] =
-    &["authorization", "x-api-key", "x-goog-api-key"];
+pub const STRIPPED_INBOUND_HEADERS: &[&str] = &["authorization", "x-api-key", "x-goog-api-key"];
 
 #[cfg(test)]
 mod tests {

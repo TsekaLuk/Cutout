@@ -8,30 +8,10 @@
  */
 import { useCallback } from 'react'
 import { toast } from 'sonner'
+import { useLingui } from '@lingui/react/macro'
+import { plural } from '@lingui/core/macro'
 import { useExportAll, useExportOne } from '@/hooks/queries/cutout'
 import type { SaveManyOutcome } from '@/services/types'
-
-/** Toast the result of a save (shared by all export buttons). */
-function reportOutcome(outcome: SaveManyOutcome): void {
-  if (outcome.canceled) return
-  const savedCount = outcome.saved.length
-  const failedCount = outcome.failed.length
-
-  if (savedCount === 0 && failedCount > 0) {
-    toast.error(`Export failed: ${outcome.failed[0]?.error ?? 'unknown error'}`)
-    return
-  }
-  const where = outcome.outputDir ? ` → ${outcome.outputDir}` : ''
-  if (failedCount > 0) {
-    toast.warning(
-      `Exported ${savedCount} of ${savedCount + failedCount}${where}`,
-    )
-  } else {
-    toast.success(
-      `Exported ${savedCount} ${savedCount === 1 ? 'slice' : 'slices'}${where}`,
-    )
-  }
-}
 
 export interface ExportControls {
   readonly exportAllPending: boolean
@@ -41,15 +21,54 @@ export interface ExportControls {
 }
 
 export function useExport(): ExportControls {
+  const { t } = useLingui()
   const exportAllMutation = useExportAll()
   const exportOneMutation = useExportOne()
+
+  /** Toast the result of a save (shared by all export buttons). */
+  const reportOutcome = useCallback(
+    (outcome: SaveManyOutcome): void => {
+      if (outcome.canceled) return
+      const savedCount = outcome.saved.length
+      const failedCount = outcome.failed.length
+      const where = outcome.outputDir ? ` → ${outcome.outputDir}` : ''
+
+      if (savedCount === 0 && failedCount > 0) {
+        const reason =
+          outcome.failed[0]?.error ??
+          t({ id: 'export.error_unknown', message: 'unknown error' })
+        toast.error(
+          t({ id: 'export.toast_failed', message: `Export failed: ${reason}` }),
+        )
+        return
+      }
+      if (failedCount > 0) {
+        const total = savedCount + failedCount
+        const summary = t({
+          id: 'export.toast_partial',
+          message: `Exported ${savedCount} of ${total}`,
+        })
+        toast.warning(`${summary}${where}`)
+      } else {
+        const summary = t({
+          id: 'export.toast_success',
+          message: plural(savedCount, {
+            one: 'Exported # slice',
+            other: 'Exported # slices',
+          }),
+        })
+        toast.success(`${summary}${where}`)
+      }
+    },
+    [t],
+  )
 
   const exportAll = useCallback((): void => {
     exportAllMutation.mutate(undefined, {
       onSuccess: reportOutcome,
       onError: (error) => toast.error(error.message),
     })
-  }, [exportAllMutation])
+  }, [exportAllMutation, reportOutcome])
 
   const exportOne = useCallback(
     (id: string): void => {
@@ -61,7 +80,7 @@ export function useExport(): ExportControls {
         },
       )
     },
-    [exportOneMutation],
+    [exportOneMutation, reportOutcome],
   )
 
   return {

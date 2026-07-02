@@ -6,6 +6,7 @@
  * so the pane never flashes an overlay onto blankness.
  */
 import { Loader2 } from 'lucide-react'
+import { Trans } from '@lingui/react/macro'
 import { useStatus, usePreviewBitmap } from '@/store/selectors'
 
 export function ProcessingOverlay() {
@@ -18,7 +19,7 @@ export function ProcessingOverlay() {
     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/35 backdrop-blur-[1px]">
       <span className="flex items-center gap-2 rounded-full bg-background/90 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
         <Loader2 className="size-3.5 animate-spin" />
-        Analyzing…
+        <Trans id="preview.analyzing">Analyzing…</Trans>
       </span>
     </div>
   )

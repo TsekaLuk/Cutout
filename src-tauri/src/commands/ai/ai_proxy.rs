@@ -97,7 +97,10 @@ impl From<KeyError> for ProxyError {
 /// addresses to avoid trivial local SSRF. Unknown kinds are rejected.
 fn enforce_host(kind: &str, url: &str) -> Result<(), ProxyError> {
     let parsed = reqwest::Url::parse(url).map_err(|_| ProxyError::BadUrl)?;
-    let host = parsed.host_str().ok_or(ProxyError::BadUrl)?.to_ascii_lowercase();
+    let host = parsed
+        .host_str()
+        .ok_or(ProxyError::BadUrl)?
+        .to_ascii_lowercase();
     let is_https = parsed.scheme() == "https";
 
     let suffix_ok = |suffix: &str| host == suffix || host.ends_with(&format!(".{suffix}"));
@@ -172,7 +175,11 @@ fn build_method_and_headers(
 fn collect_headers(resp: &reqwest::Response) -> HashMap<String, String> {
     resp.headers()
         .iter()
-        .filter_map(|(k, v)| v.to_str().ok().map(|s| (k.as_str().to_string(), s.to_string())))
+        .filter_map(|(k, v)| {
+            v.to_str()
+                .ok()
+                .map(|s| (k.as_str().to_string(), s.to_string()))
+        })
         .collect()
 }
 
@@ -196,10 +203,16 @@ pub async fn ai_proxy_request(
         req = req.body(body);
     }
 
-    let resp = req.send().await.map_err(|e| ProxyError::Request(e.to_string()))?;
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| ProxyError::Request(e.to_string()))?;
     let status = resp.status().as_u16();
     let resp_headers = collect_headers(&resp);
-    let body = resp.text().await.map_err(|e| ProxyError::Request(e.to_string()))?;
+    let body = resp
+        .text()
+        .await
+        .map_err(|e| ProxyError::Request(e.to_string()))?;
 
     Ok(ProxyResponse {
         status,
@@ -230,7 +243,10 @@ pub async fn ai_proxy_stream(
     if let Some(body) = body {
         req = req.body(body);
     }
-    let resp = req.send().await.map_err(|e| ProxyError::Request(e.to_string()))?;
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| ProxyError::Request(e.to_string()))?;
 
     // --- Head frame: status + headers, sent before any body bytes. ---
     let status = resp.status().as_u16();
@@ -350,8 +366,7 @@ mod tests {
 
     #[test]
     fn build_headers_defaults_method_to_post() {
-        let (method, _) =
-            build_method_and_headers("openai", "", HashMap::new(), "k").unwrap();
+        let (method, _) = build_method_and_headers("openai", "", HashMap::new(), "k").unwrap();
         assert_eq!(method, Method::POST);
     }
 

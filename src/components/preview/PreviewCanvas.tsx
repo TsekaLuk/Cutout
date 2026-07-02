@@ -9,6 +9,7 @@
  * tracks the image under both zoom and resize.
  */
 import { useEffect, useRef } from 'react'
+import { Trans } from '@lingui/react/macro'
 import { usePreviewBitmap, useSelectedSlice } from '@/store/selectors'
 import { useElementSize } from '@/hooks/useElementSize'
 import { fitContain } from '@/lib/fit'
@@ -52,7 +53,9 @@ export function PreviewCanvas({ zoom, checker }: PreviewCanvasProps) {
         />
       ) : (
         <p className="px-6 text-center text-sm text-muted-foreground">
-          The transparent preview appears here once a sheet is analyzed.
+          <Trans id="preview.empty_hint">
+            The transparent preview appears here once a sheet is analyzed.
+          </Trans>
         </p>
       )}
     </div>

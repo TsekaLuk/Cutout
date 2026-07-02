@@ -95,8 +95,8 @@ pub async fn save_providers<R: Runtime>(
     providers: Vec<ProviderConfig>,
 ) -> Result<(), ProvidersError> {
     let path = config_path(&app)?;
-    let json = serde_json::to_vec_pretty(&providers)
-        .map_err(|e| ProvidersError::Parse(e.to_string()))?;
+    let json =
+        serde_json::to_vec_pretty(&providers).map_err(|e| ProvidersError::Parse(e.to_string()))?;
     tokio::fs::write(&path, &json)
         .await
         .map_err(|e| ProvidersError::Write(e.to_string()))

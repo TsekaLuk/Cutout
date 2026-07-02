@@ -7,6 +7,7 @@
  */
 import { useCallback, useRef } from 'react'
 import { toast } from 'sonner'
+import { useLingui } from '@lingui/react/macro'
 import { useStore } from '@/store'
 import { decodeImage, isSupportedImage, baseName } from '@/lib/image'
 
@@ -23,13 +24,17 @@ export interface ImageImport {
 }
 
 export function useImageImport(): ImageImport {
+  const { t } = useLingui()
   const loadImage = useStore((s) => s.loadImage)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   const importFile = useCallback(
     async (file: File): Promise<void> => {
       if (!isSupportedImage(file)) {
-        toast.error(`Unsupported file: ${file.name}`)
+        const name = file.name
+        toast.error(
+          t({ id: 'import.toast_unsupported', message: `Unsupported file: ${name}` }),
+        )
         return
       }
       try {
@@ -37,11 +42,13 @@ export function useImageImport(): ImageImport {
         loadImage({ bitmap, name: baseName(file.name) })
       } catch (error) {
         toast.error(
-          error instanceof Error ? error.message : 'Could not load image',
+          error instanceof Error
+            ? error.message
+            : t({ id: 'import.toast_load_failed', message: 'Could not load image' }),
         )
       }
     },
-    [loadImage],
+    [loadImage, t],
   )
 
   const openPicker = useCallback((): void => {

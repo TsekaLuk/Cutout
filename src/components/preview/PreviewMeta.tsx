@@ -1,15 +1,17 @@
 /**
  * PreviewMeta (spec §4c) — "N regions" chip for the preview header.
  */
+import { Plural } from '@lingui/react/macro'
 import { useSlices } from '@/store/selectors'
 import { Badge } from '@/components/ui/badge'
 
 export function PreviewMeta() {
   const slices = useSlices()
-  if (slices.length === 0) return null
+  const count = slices.length
+  if (count === 0) return null
   return (
     <Badge variant="secondary" className="tabular-nums">
-      {slices.length} {slices.length === 1 ? 'region' : 'regions'}
+      <Plural id="preview.region_count" value={count} one="# region" other="# regions" />
     </Badge>
   )
 }

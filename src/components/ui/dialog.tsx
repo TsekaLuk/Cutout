@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { XIcon } from "lucide-react"
+import { Trans } from "@lingui/react/macro"
 
 import { cn } from "@/lib/utils"
 
@@ -68,7 +69,9 @@ function DialogContent({
             className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-70 transition-all outline-none hover:bg-muted hover:text-foreground hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none [&_svg]:size-3.5"
           >
             <XIcon />
-            <span className="sr-only">关闭</span>
+            <span className="sr-only">
+              <Trans id="common.close">Close</Trans>
+            </span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

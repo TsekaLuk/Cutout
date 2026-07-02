@@ -5,6 +5,7 @@
  * when there is no preview to look at.
  */
 import { Maximize2, Scan, Grid2x2 } from 'lucide-react'
+import { useLingui } from '@lingui/react/macro'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -30,10 +31,11 @@ export function PreviewToolbar({
   onZoomChange,
   onCheckerToggle,
 }: PreviewToolbarProps) {
+  const { t } = useLingui()
   return (
     <div className="flex items-center gap-1">
       <ToolbarToggle
-        label="Fit to pane"
+        label={t({ id: 'preview.zoom_fit', message: 'Fit to pane' })}
         active={zoom === 'fit'}
         disabled={!enabled}
         onClick={() => onZoomChange('fit')}
@@ -41,7 +43,7 @@ export function PreviewToolbar({
         <Maximize2 />
       </ToolbarToggle>
       <ToolbarToggle
-        label="Actual size (1:1)"
+        label={t({ id: 'preview.zoom_actual', message: 'Actual size (1:1)' })}
         active={zoom === 'actual'}
         disabled={!enabled}
         onClick={() => onZoomChange('actual')}
@@ -50,7 +52,7 @@ export function PreviewToolbar({
       </ToolbarToggle>
       <Separator orientation="vertical" className="mx-1 h-4" />
       <ToolbarToggle
-        label="Toggle checkerboard"
+        label={t({ id: 'preview.toggle_checker', message: 'Toggle checkerboard' })}
         active={checker}
         disabled={!enabled}
         onClick={onCheckerToggle}

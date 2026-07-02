@@ -3,6 +3,7 @@
  * dimensions, export. Empty when nothing is selected.
  */
 import { MousePointerClick } from 'lucide-react'
+import { Trans } from '@lingui/react/macro'
 import { useSelectedSlice, useSlices } from '@/store/selectors'
 import { SliceThumb } from '@/components/slices/SliceThumb'
 import { SliceNameField } from './SliceNameField'
@@ -19,9 +20,15 @@ export function InspectorPanel() {
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
         <MousePointerClick className="size-7 text-muted-foreground/50" />
         <p className="max-w-52 text-xs text-muted-foreground">
-          {hasSlices
-            ? 'Select a slice to rename, inspect, and export it.'
-            : 'Sliced regions and their details will show up here.'}
+          {hasSlices ? (
+            <Trans id="inspector.empty_has_slices">
+              Select a slice to rename, inspect, and export it.
+            </Trans>
+          ) : (
+            <Trans id="inspector.empty_no_slices">
+              Sliced regions and their details will show up here.
+            </Trans>
+          )}
         </p>
       </div>
     )

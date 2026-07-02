@@ -6,6 +6,7 @@
  * fires a rename intent the inspector's name field answers.
  */
 import { Download, Pencil, Copy } from 'lucide-react'
+import { useLingui } from '@lingui/react/macro'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -23,6 +24,7 @@ export interface SliceCardActionsProps {
 }
 
 export function SliceCardActions({ slice }: SliceCardActionsProps) {
+  const { t } = useLingui()
   const selectSlice = useStore((s) => s.selectSlice)
   const copyPng = useCopyPng()
   const { exportOne, exportOnePending } = useExport()
@@ -35,14 +37,14 @@ export function SliceCardActions({ slice }: SliceCardActionsProps) {
       onClick={stop}
     >
       <Action
-        label="Export slice"
+        label={t({ id: 'slices.action_export', message: 'Export slice' })}
         disabled={exportOnePending}
         onClick={() => exportOne(slice.id)}
       >
         <Download />
       </Action>
       <Action
-        label="Rename"
+        label={t({ id: 'slices.action_rename', message: 'Rename' })}
         onClick={() => {
           selectSlice(slice.id)
           requestRename(slice.id)
@@ -50,7 +52,10 @@ export function SliceCardActions({ slice }: SliceCardActionsProps) {
       >
         <Pencil />
       </Action>
-      <Action label="Copy PNG" onClick={() => void copyPng(slice.blob, slice.name)}>
+      <Action
+        label={t({ id: 'slices.action_copy_png', message: 'Copy PNG' })}
+        onClick={() => void copyPng(slice.blob, slice.name)}
+      >
         <Copy />
       </Action>
     </div>

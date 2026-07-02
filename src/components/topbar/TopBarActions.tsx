@@ -7,6 +7,7 @@
  * they'd be no-ops (no source / no slices / export in flight).
  */
 import { FolderOpen, RefreshCw, DownloadCloud } from 'lucide-react'
+import { Trans, useLingui } from '@lingui/react/macro'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -23,6 +24,7 @@ export interface TopBarActionsProps {
 }
 
 export function TopBarActions({ onRerun }: TopBarActionsProps) {
+  const { t } = useLingui()
   const { openPicker, inputProps } = useImageImport()
   const { exportAll, exportAllPending } = useExport()
   const hasSource = useSource().bitmap !== null
@@ -31,35 +33,35 @@ export function TopBarActions({ onRerun }: TopBarActionsProps) {
   return (
     <div className="flex items-center gap-1.5">
       <ActionButton
-        label="Import"
+        label={t({ id: 'topbar.import', message: 'Import' })}
         shortcut="⌘O"
         variant="outline"
         onClick={openPicker}
       >
         <FolderOpen />
-        Import
+        <Trans id="topbar.import">Import</Trans>
       </ActionButton>
 
       <ActionButton
-        label="Rerun analysis"
+        label={t({ id: 'topbar.rerun_label', message: 'Rerun analysis' })}
         shortcut="⌘R"
         variant="ghost"
         disabled={!hasSource}
         onClick={onRerun}
       >
         <RefreshCw />
-        Rerun
+        <Trans id="topbar.rerun_button">Rerun</Trans>
       </ActionButton>
 
       <ActionButton
-        label="Export all slices"
+        label={t({ id: 'topbar.export_all_label', message: 'Export all slices' })}
         shortcut="⌘⇧E"
         variant="default"
         disabled={sliceCount === 0 || exportAllPending}
         onClick={exportAll}
       >
         <DownloadCloud />
-        Export all
+        <Trans id="topbar.export_all_button">Export all</Trans>
       </ActionButton>
 
       <input {...inputProps} type="file" accept="image/*" className="hidden" />

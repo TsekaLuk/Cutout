@@ -5,6 +5,7 @@
  * the drop flow and the export path. DOM-facing (main thread) — the worker has
  * its own render helpers in `workers/render.worker-side.ts`.
  */
+import { t } from '@lingui/core/macro'
 import { ACCEPTED_IMAGE_TYPES } from './constants'
 
 /** True if a file looks like an importable raster image. */
@@ -29,7 +30,12 @@ export async function decodeImage(source: Blob): Promise<ImageBitmap> {
   try {
     return await createImageBitmap(source)
   } catch {
-    throw new Error('That file could not be decoded as an image.')
+    throw new Error(
+      t({
+        id: 'image.error_decode_failed',
+        message: 'That file could not be decoded as an image.',
+      }),
+    )
   }
 }
 

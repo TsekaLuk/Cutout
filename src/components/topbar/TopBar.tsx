@@ -8,6 +8,7 @@ import { Scissors } from 'lucide-react'
 import { TopBarActions } from './TopBarActions'
 import { ThemeToggle } from './ThemeToggle'
 import { SettingsMenu } from './SettingsMenu'
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher'
 
 export interface TopBarProps {
   readonly onRerun: () => void
@@ -26,6 +27,7 @@ export function TopBar({ onRerun }: TopBarProps) {
       <div className="flex items-center gap-1.5">
         <TopBarActions onRerun={onRerun} />
         <div className="mx-1 h-5 w-px bg-border" />
+        <LanguageSwitcher variant="icon" />
         <ThemeToggle />
         <SettingsMenu />
       </div>

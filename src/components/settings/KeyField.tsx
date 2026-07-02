@@ -12,6 +12,7 @@
  */
 import { useState } from 'react'
 import { Eye, EyeOff, KeyRound } from 'lucide-react'
+import { Trans, useLingui } from '@lingui/react/macro'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,13 +28,14 @@ interface KeyFieldProps {
 }
 
 export function KeyField({ id, value, onChange, hasKey, disabled }: KeyFieldProps) {
+  const { t } = useLingui()
   const [reveal, setReveal] = useState(false)
 
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>
         <KeyRound className="size-3.5 text-muted-foreground" />
-        API Key
+        <Trans id="settings.key_label">API Key</Trans>
       </Label>
       <div className="relative">
         <Input
@@ -46,7 +48,14 @@ export function KeyField({ id, value, onChange, hasKey, disabled }: KeyFieldProp
           autoCapitalize="off"
           spellCheck={false}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={hasKey ? '已配置，输入以替换' : '输入 API Key'}
+          placeholder={
+            hasKey
+              ? t({
+                  id: 'settings.key_placeholder_replace',
+                  message: 'Configured — type to replace',
+                })
+              : t({ id: 'settings.key_placeholder_empty', message: 'Enter API Key' })
+          }
           className="pr-8 font-mono"
         />
         <Button
@@ -55,7 +64,11 @@ export function KeyField({ id, value, onChange, hasKey, disabled }: KeyFieldProp
           size="icon-xs"
           tabIndex={-1}
           disabled={disabled}
-          aria-label={reveal ? '隐藏' : '显示'}
+          aria-label={
+            reveal
+              ? t({ id: 'settings.key_hide', message: 'Hide' })
+              : t({ id: 'settings.key_show', message: 'Show' })
+          }
           onClick={() => setReveal((v) => !v)}
           className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
         >
@@ -63,7 +76,10 @@ export function KeyField({ id, value, onChange, hasKey, disabled }: KeyFieldProp
         </Button>
       </div>
       <p className={cn('text-xs text-muted-foreground')}>
-        密钥仅写入系统钥匙串，永不回传或显示。
+        <Trans id="settings.key_hint">
+          The key is written only to the system keychain, never sent back or
+          displayed.
+        </Trans>
       </p>
     </div>
   )

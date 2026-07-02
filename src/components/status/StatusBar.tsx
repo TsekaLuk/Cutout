@@ -7,23 +7,40 @@
  * looking away from the output.
  */
 import { useMemo } from 'react'
+import { Trans, Plural, useLingui } from '@lingui/react/macro'
 import { useSlices, useParams, useStatus } from '@/store/selectors'
 import { formatBytes } from '@/lib/image'
 
 export function StatusBar() {
+  const { t } = useLingui()
   const slices = useSlices()
   const params = useParams()
   const status = useStatus()
+  const { threshold, minArea, mergeGap, padding } = params
 
   const totalBytes = useMemo(
     () => slices.reduce((sum, slice) => sum + slice.blob.size, 0),
     [slices],
   )
 
+  const statusLabel =
+    status === 'running'
+      ? t({ id: 'status.state_running', message: 'analyzing…' })
+      : status === 'done'
+        ? t({ id: 'status.state_done', message: 'done' })
+        : status === 'error'
+          ? t({ id: 'status.state_error', message: 'error' })
+          : t({ id: 'status.state_idle', message: 'idle' })
+
   return (
     <footer className="flex h-7 shrink-0 items-center gap-3 border-t border-border bg-background px-3 text-[11px] text-muted-foreground">
       <span className="tabular-nums">
-        {slices.length} {slices.length === 1 ? 'slice' : 'slices'}
+        <Plural
+          id="status.slice_count"
+          value={slices.length}
+          one="# slice"
+          other="# slices"
+        />
       </span>
       {slices.length > 0 && (
         <>
@@ -33,12 +50,11 @@ export function StatusBar() {
       )}
       <Dot />
       <span className="font-mono tabular-nums">
-        thr {params.threshold} · area {params.minArea} · gap {params.mergeGap} ·
-        pad {params.padding}
+        <Trans id="status.param_summary">
+          thr {threshold} · area {minArea} · gap {mergeGap} · pad {padding}
+        </Trans>
       </span>
-      <span className="ml-auto capitalize">
-        {status === 'running' ? 'analyzing…' : status}
-      </span>
+      <span className="ml-auto capitalize">{statusLabel}</span>
     </footer>
   )
 }

@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from 'react'
 import { KeyRound, Plus } from 'lucide-react'
+import { Trans } from '@lingui/react/macro'
 import type { ProviderConfig } from '@/services/ai/provider-types'
 import { useProviders } from '@/hooks/queries/providers'
 import { Button } from '@/components/ui/button'
@@ -54,16 +55,26 @@ export function ProviderSettingsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="size-4 text-muted-foreground" />
-            {view.mode === 'add'
-              ? '添加提供方'
-              : view.mode === 'edit'
-                ? '编辑提供方'
-                : 'API Keys / 提供方'}
+            {view.mode === 'add' ? (
+              <Trans id="settings.add_provider">Add provider</Trans>
+            ) : view.mode === 'edit' ? (
+              <Trans id="settings.dialog_edit_title">Edit provider</Trans>
+            ) : (
+              <Trans id="settings.dialog_title">API Keys / Providers</Trans>
+            )}
           </DialogTitle>
           <DialogDescription>
-            {isForm
-              ? '密钥仅保存在系统钥匙串，永不进入网页或磁盘明文。'
-              : '管理模型提供方与密钥（BYOK）。密钥安全存于系统钥匙串。'}
+            {isForm ? (
+              <Trans id="settings.dialog_form_desc">
+                Keys are stored only in the system keychain, never written to the
+                web page or disk in plaintext.
+              </Trans>
+            ) : (
+              <Trans id="settings.dialog_list_desc">
+                Manage model providers and keys (BYOK). Keys are stored securely
+                in the system keychain.
+              </Trans>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -88,14 +99,21 @@ export function ProviderSettingsDialog({
                 </>
               ) : providers.isError ? (
                 <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-6 text-center text-sm text-destructive">
-                  加载提供方失败
+                  <Trans id="settings.load_failed">Failed to load providers</Trans>
                 </p>
               ) : list.length === 0 ? (
                 <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border px-3 py-8 text-center">
                   <KeyRound className="size-5 text-muted-foreground" />
-                  <p className="text-sm font-medium">尚未配置提供方</p>
+                  <p className="text-sm font-medium">
+                    <Trans id="settings.empty_title">
+                      No providers configured yet
+                    </Trans>
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    添加一个提供方并填入 API Key 即可开始使用 AI 功能。
+                    <Trans id="settings.empty_desc">
+                      Add a provider and enter an API key to start using AI
+                      features.
+                    </Trans>
                   </p>
                 </div>
               ) : (
@@ -115,7 +133,7 @@ export function ProviderSettingsDialog({
               onClick={() => setView({ mode: 'add' })}
             >
               <Plus />
-              添加提供方
+              <Trans id="settings.add_provider">Add provider</Trans>
             </Button>
           </div>
         )}

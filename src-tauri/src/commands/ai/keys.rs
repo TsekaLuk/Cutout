@@ -73,7 +73,9 @@ fn set_key_inner(provider_id: &str, secret: &str) -> Result<(), KeyError> {
     if secret.is_empty() {
         return Err(KeyError::EmptySecret);
     }
-    entry(provider_id)?.set_password(secret).map_err(KeyError::from)
+    entry(provider_id)?
+        .set_password(secret)
+        .map_err(KeyError::from)
 }
 
 fn key_status_inner(provider_id: &str) -> Result<bool, KeyError> {

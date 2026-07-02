@@ -243,7 +243,10 @@ mod tests {
 
     #[test]
     fn sanitize_keeps_allowed_chars() {
-        assert_eq!(sanitize_filename("Sprite_01-final.png"), "Sprite_01-final.png");
+        assert_eq!(
+            sanitize_filename("Sprite_01-final.png"),
+            "Sprite_01-final.png"
+        );
         assert_eq!(sanitize_filename("ABC123_-."), "ABC123_-.");
     }
 

@@ -8,6 +8,7 @@
  * Width is observed locally (the rail is itself a resizable pane), so the
  * switch responds to dragging the divider, not just the window.
  */
+import { Trans } from '@lingui/react/macro'
 import { useSlices } from '@/store/selectors'
 import { useElementSize } from '@/hooks/useElementSize'
 import { SliceGrid } from './SliceGrid'
@@ -29,7 +30,8 @@ export function RightRail() {
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex items-center justify-between px-3 pt-3 pb-1">
             <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Slices{count > 0 ? ` · ${count}` : ''}
+              <Trans id="slices.heading">Slices</Trans>
+              {count > 0 ? ` · ${count}` : ''}
             </h2>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
