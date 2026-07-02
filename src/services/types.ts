@@ -8,6 +8,7 @@
  */
 import type { Box, CutoutParams } from '@/algorithm/types'
 import type { ProviderService, GenerationService } from './ai/types'
+import type { PromptService } from '@/prompts/types'
 
 /** Uniform success/failure envelope so callers never throw across the seam. */
 export type Result<T> =
@@ -130,4 +131,6 @@ export interface ServiceRegistry {
   readonly providers: ProviderService
   /** BYOK text generation over the Rust proxy (spec §5). */
   readonly generation: GenerationService
+  /** Managed prompt catalog (spec §4) — versioned model-instruction assets. */
+  readonly prompts: PromptService
 }

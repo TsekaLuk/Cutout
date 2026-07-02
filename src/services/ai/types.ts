@@ -11,6 +11,7 @@
  */
 import type { Result } from '@/services/types'
 import type { ProviderConfig, ProviderDraft } from './provider-types'
+import type { PromptPart, PromptRef } from '@/prompts/types'
 
 /** Key + provider-config management. Secrets are never returned to JS. */
 export interface ProviderService {
@@ -30,18 +31,40 @@ export interface ProviderService {
   test(id: string): Promise<Result<{ model: string }>>
 }
 
-/** Input shared by generation calls. `model` overrides the config default. */
+/**
+ * Input shared by generation calls (spec §6). `model` overrides the config
+ * default. Exactly ONE of `prompt` / `system` / `promptRef` supplies the
+ * instruction (enforced at runtime); `input` carries multimodal user content
+ * (e.g. the screenshot) for the `system`/`promptRef` paths.
+ */
 export interface GenerateInput {
   readonly providerId: string
   readonly model?: string
-  readonly prompt: string
   readonly signal?: AbortSignal
+  /** Raw single-string prompt (back-compat, text-only path). */
+  readonly prompt?: string
+  /** Explicit system instruction (paired with `input` for multimodal). */
+  readonly system?: string
+  /** A managed prompt, resolved + rendered via `PromptService` → `system`. */
+  readonly promptRef?: PromptRef
+  /** Multimodal user-message content (image + text framing). */
+  readonly input?: readonly PromptPart[]
 }
 
-/** What features call to produce text; more (image/infill) lands here later. */
+/** A generated binary asset (e.g. an image from `result.files`). */
+export interface GeneratedAsset {
+  /** IANA media type, e.g. `image/png`. */
+  readonly mediaType: string
+  /** Raw bytes of the asset. */
+  readonly bytes: Uint8Array
+}
+
+/** What features call to produce text/images; infill etc. lands here later. */
 export interface GenerationService {
   /** Buffered generation. Never throws across the seam — returns a `Result`. */
   generateText(input: GenerateInput): Promise<Result<string>>
   /** Incremental generation. Yields text deltas; throws on setup failure. */
   streamText(input: GenerateInput): AsyncIterable<string>
+  /** Image generation via the AI SDK image path (`result.files`, spec §6). */
+  generateImages(input: GenerateInput): Promise<Result<GeneratedAsset[]>>
 }

@@ -17,6 +17,7 @@ import { createLocalAssetRepository } from './local/asset-repository.local'
 import { createLocalSessionService } from './local/session.local'
 import { createLocalProviderService } from './ai/provider-service.local'
 import { createLocalGenerationService } from './ai/generation-service.local'
+import { createLocalPromptService } from './ai/prompt-service.local'
 
 /** Assemble the local (v1) registry from a worker + native bridge. */
 export function createLocalRegistry(
@@ -26,12 +27,16 @@ export function createLocalRegistry(
   // BYOK: the provider service resolves config for the generation service, so
   // build it first and hand it in (it satisfies the `Pick<'list'>` dependency).
   const providers = createLocalProviderService()
+  // Prompts are a pure, offline catalog; the generation service consumes them to
+  // resolve a `promptRef` → system instruction (spec §6).
+  const prompts = createLocalPromptService()
   return {
     cutout: createLocalCutoutService(worker),
     assets: createLocalAssetRepository(bridge),
     session: createLocalSessionService(),
     providers,
-    generation: createLocalGenerationService(providers),
+    generation: createLocalGenerationService(providers, prompts),
+    prompts,
   }
 }
 
