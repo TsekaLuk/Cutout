@@ -32,6 +32,42 @@ export const SUGGESTED_MODELS: Record<ProviderKind, readonly string[]> = {
   'openai-compatible': [],
 }
 
+/**
+ * Curated shortlist of mainstream model slugs for the Settings model picker —
+ * surfaced for relays / `openai-compatible` (and gateway) endpoints that proxy
+ * many upstreams, so users can pick a popular model instead of recalling exact
+ * slugs. Hand-curated snapshot (niche providers intentionally omitted) informed
+ * by the models.dev catalog (https://models.dev) — refresh it there. The field
+ * stays free-text and case-sensitive; these are only suggestions.
+ */
+export const POPULAR_MODELS: readonly string[] = [
+  // OpenAI — chat / reasoning
+  'gpt-5.5',
+  'gpt-5',
+  'gpt-5-mini',
+  'gpt-4.1',
+  'gpt-4o',
+  'o3',
+  'o4-mini',
+  // OpenAI — image
+  'gpt-image-2',
+  'gpt-image-1',
+  'dall-e-3',
+  // Anthropic
+  'claude-opus-4-8',
+  'claude-sonnet-5',
+  'claude-haiku-4-5',
+  // Google
+  'gemini-3-pro',
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'gemini-3.1-flash-image-preview',
+  'gemini-2.5-flash-image',
+  'imagen-3',
+  // xAI
+  'grok-4',
+]
+
 /** Resolve the effective model for a call: explicit override → config default. */
 export function resolveModel(
   kind: ProviderKind,

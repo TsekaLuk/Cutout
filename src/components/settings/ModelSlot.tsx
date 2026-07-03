@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import type { SlotId } from '@/services/ai/model-assignment-types'
-import { SUGGESTED_MODELS } from '@/services/ai/models'
+import { SUGGESTED_MODELS, POPULAR_MODELS } from '@/services/ai/models'
 import { useProviders } from '@/hooks/queries/providers'
 import {
   useModelAssignments,
@@ -67,9 +67,16 @@ export function ModelSlot({ slot, label, hint }: ModelSlotProps) {
   const selected = list.find((p) => p.id === providerId)
   const endpointModels = useEndpointModels(selected)
 
+  // Relays / gateways proxy many upstreams → offer the curated mainstream list;
+  // direct vendors offer their own. Union with the endpoint's discovered models.
+  const curated = selected
+    ? selected.kind === 'openai-compatible' || selected.kind === 'gateway'
+      ? POPULAR_MODELS
+      : SUGGESTED_MODELS[selected.kind]
+    : []
   const suggestions = Array.from(
     new Set([
-      ...(selected ? SUGGESTED_MODELS[selected.kind] : []),
+      ...curated,
       ...(endpointModels.data ?? []),
       ...(model.trim() ? [model.trim()] : []),
     ]),
@@ -143,6 +150,9 @@ export function ModelSlot({ slot, label, hint }: ModelSlotProps) {
             message: 'model',
           })}
           className="font-mono"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
         />
         <datalist id={listId}>
           {suggestions.map((m) => (

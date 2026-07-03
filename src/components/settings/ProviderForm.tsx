@@ -23,7 +23,11 @@ import {
   type ProviderDraft,
   type ProviderKind,
 } from '@/services/ai/provider-types'
-import { DEFAULT_MODEL, SUGGESTED_MODELS } from '@/services/ai/models'
+import {
+  DEFAULT_MODEL,
+  SUGGESTED_MODELS,
+  POPULAR_MODELS,
+} from '@/services/ai/models'
 import {
   useUpsertProvider,
   useSetKey,
@@ -108,7 +112,14 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
 
   const needsBaseUrl = kind === 'openai-compatible'
   const modelOptions = Array.from(
-    new Set([...SUGGESTED_MODELS[kind], defaultModel].filter((m) => m.trim())),
+    new Set(
+      [
+        ...SUGGESTED_MODELS[kind],
+        // Relays proxy many upstreams → offer the curated mainstream shortlist.
+        ...(kind === 'openai-compatible' ? POPULAR_MODELS : []),
+        defaultModel,
+      ].filter((m) => m.trim()),
+    ),
   )
 
   const canSave =
@@ -222,6 +233,9 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder="https://api.example.com/v1"
             className="font-mono"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
           />
         </div>
       )}
@@ -242,6 +256,9 @@ export function ProviderForm({ initial, onDone }: ProviderFormProps) {
           placeholder={DEFAULT_MODEL[kind]}
           className="font-mono"
           autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
         />
         {modelOptions.length > 0 && (
           <datalist id="provider-model-suggestions">
