@@ -44,11 +44,25 @@ export function ModelSlot({ slot, label, hint }: ModelSlotProps) {
   const [providerId, setProviderId] = useState('')
   const [model, setModel] = useState('')
 
-  // Sync the fields when the persisted assignment (re)loads.
+  // With exactly one endpoint, pre-select it — the same connection (one key)
+  // serves every slot; models are chosen per capability, not per provider.
+  const soleProviderId = list.length === 1 ? list[0].id : ''
+  const currentProviderId = current?.providerId
+  const currentModel = current?.model
+
+  // Sync fields when the persisted assignment (re)loads; default an unset slot
+  // to the sole endpoint with the model left blank (picked from /v1/models below).
+  // Depends on the assignment's fields (not the query object identity, which
+  // changes each render) so it doesn't re-run on every fetch.
   useEffect(() => {
-    setProviderId(current?.providerId ?? '')
-    setModel(current?.model ?? '')
-  }, [current?.providerId, current?.model])
+    if (currentProviderId !== undefined) {
+      setProviderId(currentProviderId)
+      setModel(currentModel ?? '')
+    } else {
+      setProviderId(soleProviderId)
+      setModel('')
+    }
+  }, [currentProviderId, currentModel, soleProviderId])
 
   const selected = list.find((p) => p.id === providerId)
   const endpointModels = useEndpointModels(selected)
@@ -95,13 +109,10 @@ export function ModelSlot({ slot, label, hint }: ModelSlotProps) {
         <Select
           value={providerId || undefined}
           onValueChange={(value) => {
+            // Switching endpoint keeps the typed model — a connection isn't tied
+            // to one model; the model is chosen per capability from the list below.
             setProviderId(value)
-            // Auto-fill the model from the picked endpoint's own default (the slug
-            // set when configuring it) so it isn't re-typed; still editable below.
-            const picked = list.find((p) => p.id === value)
-            const nextModel = picked?.defaultModel ?? model
-            setModel(nextModel)
-            commit(value, nextModel)
+            commit(value, model)
           }}
         >
           <SelectTrigger className="w-40 shrink-0">

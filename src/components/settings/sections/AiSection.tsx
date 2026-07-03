@@ -113,6 +113,12 @@ export function AiSection() {
         <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           <Trans id="settings.models_heading">Models</Trans>
         </h3>
+        <p className="-mt-1 text-xs text-muted-foreground">
+          <Trans id="settings.models_hint">
+            One endpoint, a different model per capability — no need to re-add the
+            provider. Pick each from the endpoint's model list or type it.
+          </Trans>
+        </p>
         <ModelSlot
           slot="chat"
           label={

@@ -1,7 +1,7 @@
 /**
  * ProviderRow (spec §7) — one configured provider in the list.
  *
- * Shows the kind (Badge), label, default model, and a status dot derived from
+ * Shows the kind (Badge), label, endpoint host, and a status dot derived from
  * keychain state + this session's test result:
  *   未配置 (no key) · 已配置 (key present) · 校验通过 / 校验失败 (last test).
  * The test outcome is intentionally session-local (not persisted) — it reflects
@@ -39,6 +39,20 @@ import {
 type TestState = 'idle' | 'ok' | 'fail'
 
 type StatusKind = 'unconfigured' | 'configured' | 'ok' | 'fail'
+
+/**
+ * The endpoint host — a provider is a *connection* (endpoint + key), not a single
+ * model. Models are assigned per capability in the Models slots below, so the row
+ * shows where it connects, not one model name.
+ */
+function hostOf(baseUrl?: string): string | undefined {
+  if (!baseUrl) return undefined
+  try {
+    return new URL(baseUrl).host
+  } catch {
+    return baseUrl
+  }
+}
 
 /** Pure status derivation; text is resolved via the catalog in the component. */
 function statusKind(hasKey: boolean, test: TestState): StatusKind {
@@ -112,6 +126,7 @@ export function ProviderRow({ provider, onEdit }: ProviderRowProps) {
   }
 
   const label = provider.label
+  const endpointHost = hostOf(provider.baseUrl)
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card/40 px-3 py-2">
@@ -128,8 +143,12 @@ export function ProviderRow({ provider, onEdit }: ProviderRowProps) {
             aria-hidden
           />
           <span>{statusText[kind]}</span>
-          <span className="text-muted-foreground/50">·</span>
-          <span className="truncate font-mono">{provider.defaultModel}</span>
+          {endpointHost ? (
+            <>
+              <span className="text-muted-foreground/50">·</span>
+              <span className="truncate font-mono">{endpointHost}</span>
+            </>
+          ) : null}
         </div>
       </div>
 

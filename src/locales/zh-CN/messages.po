@@ -633,6 +633,11 @@ msgid "settings.status_unconfigured"
 msgstr "未配置"
 
 #. js-lingui-explicit-id
+#: src/components/settings/sections/AiSection.tsx
+msgid "settings.models_hint"
+msgstr "同一端点、不同能力用不同模型——无需重加服务商。每个从端点的模型列表里挑，或手填。"
+
+#. js-lingui-explicit-id
 #: src/components/settings/ProviderForm.tsx
 msgid "settings.provider_kind_openai_compatible"
 msgstr "OpenAI 兼容"
