@@ -75,14 +75,6 @@ fn secret_cache() -> &'static Mutex<HashMap<String, String>> {
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn cache_get(provider_id: &str) -> Option<String> {
-    secret_cache()
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .get(provider_id)
-        .cloned()
-}
-
 fn cache_put(provider_id: &str, secret: String) {
     secret_cache()
         .lock()
@@ -97,16 +89,32 @@ fn cache_remove(provider_id: &str) {
         .remove(provider_id);
 }
 
+/// Cache lookup, else read the keychain ONCE. The keychain read happens **while
+/// holding the cache lock**, so concurrent callers single-flight: the first
+/// unlocks the item (one OS prompt) and caches it; everyone else — including
+/// reads that raced in before the cache was warm — then hits the cache. Without
+/// this, N concurrent first-reads (status check + /v1/models + proxy) each
+/// prompted. Returns `None` for a missing item (`NoEntry` — no prompt).
+fn cached_or_fetch(provider_id: &str) -> Result<Option<String>, KeyError> {
+    let mut guard = secret_cache().lock().unwrap_or_else(|p| p.into_inner());
+    if let Some(cached) = guard.get(provider_id) {
+        return Ok(Some(cached.clone()));
+    }
+    match entry(provider_id)?.get_password() {
+        Ok(secret) => {
+            guard.insert(provider_id.to_string(), secret.clone());
+            Ok(Some(secret))
+        }
+        Err(KeyringError::NoEntry) => Ok(None),
+        Err(e) => Err(KeyError::from(e)),
+    }
+}
+
 /// Read the secret for a provider. **Internal only** — used by the proxy to
 /// inject the auth header. Never exposed as a command. Served from the process
 /// cache after the first keychain read → one OS prompt per keyed provider/run.
 pub(crate) fn read_secret(provider_id: &str) -> Result<String, KeyError> {
-    if let Some(cached) = cache_get(provider_id) {
-        return Ok(cached);
-    }
-    let secret = entry(provider_id)?.get_password().map_err(KeyError::from)?;
-    cache_put(provider_id, secret.clone());
-    Ok(secret)
+    cached_or_fetch(provider_id)?.ok_or(KeyError::NotFound)
 }
 
 // The keychain calls below are blocking; the `#[tauri::command] async fn`
@@ -125,20 +133,9 @@ fn set_key_inner(provider_id: &str, secret: &str) -> Result<(), KeyError> {
 }
 
 fn key_status_inner(provider_id: &str) -> Result<bool, KeyError> {
-    // A cached secret means "configured" without touching the keychain (no prompt).
-    if cache_get(provider_id).is_some() {
-        return Ok(true);
-    }
-    match entry(provider_id)?.get_password() {
-        // Reading to check existence already unlocks it — cache so later reads
-        // (the proxy) don't prompt again.
-        Ok(secret) => {
-            cache_put(provider_id, secret);
-            Ok(true)
-        }
-        Err(KeyringError::NoEntry) => Ok(false),
-        Err(e) => Err(KeyError::from(e)),
-    }
+    // Same single-flight path as read_secret: checking existence unlocks + caches
+    // the item, so a later proxy read doesn't prompt again.
+    Ok(cached_or_fetch(provider_id)?.is_some())
 }
 
 fn delete_key_inner(provider_id: &str) -> Result<(), KeyError> {
@@ -235,7 +232,11 @@ mod tests {
         }
         assert_eq!(read_secret(&id).expect("cached read"), "cached-secret");
         let _ = delete_key_inner(&id);
-        assert!(cache_get(&id).is_none(), "delete must evict the cache");
+        // If delete did not evict the cache, this would return the stale secret.
+        assert!(
+            cached_or_fetch(&id).unwrap().is_none(),
+            "delete must evict the cache"
+        );
     }
 
     #[test]
