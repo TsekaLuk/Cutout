@@ -9,6 +9,9 @@
 //! `set_password`, `get_password`, `delete_credential`; missing entry surfaces
 //! as `keyring::Error::NoEntry`.
 
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
 use keyring::{Entry, Error as KeyringError};
 use serde::Serialize;
 
@@ -59,10 +62,51 @@ fn entry(provider_id: &str) -> Result<Entry, KeyError> {
     Entry::new(SERVICE, &account).map_err(KeyError::from)
 }
 
+/// Process-lifetime cache of already-read secrets, keyed by provider id.
+///
+/// The OS keychain re-prompts for access on every read of a protected item when
+/// the app binary is unsigned / re-signed (every `tauri dev` rebuild). Reading
+/// each secret at most ONCE per process collapses that to a single prompt per
+/// keyed provider per run. The secret already lives in this Rust process and
+/// never crosses to JS, so an in-memory cache does not widen the trust boundary.
+/// Kept in sync by `set_key` / `delete_key`.
+fn secret_cache() -> &'static Mutex<HashMap<String, String>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn cache_get(provider_id: &str) -> Option<String> {
+    secret_cache()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .get(provider_id)
+        .cloned()
+}
+
+fn cache_put(provider_id: &str, secret: String) {
+    secret_cache()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .insert(provider_id.to_string(), secret);
+}
+
+fn cache_remove(provider_id: &str) {
+    secret_cache()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .remove(provider_id);
+}
+
 /// Read the secret for a provider. **Internal only** — used by the proxy to
-/// inject the auth header. Never exposed as a command.
+/// inject the auth header. Never exposed as a command. Served from the process
+/// cache after the first keychain read → one OS prompt per keyed provider/run.
 pub(crate) fn read_secret(provider_id: &str) -> Result<String, KeyError> {
-    entry(provider_id)?.get_password().map_err(KeyError::from)
+    if let Some(cached) = cache_get(provider_id) {
+        return Ok(cached);
+    }
+    let secret = entry(provider_id)?.get_password().map_err(KeyError::from)?;
+    cache_put(provider_id, secret.clone());
+    Ok(secret)
 }
 
 // The keychain calls below are blocking; the `#[tauri::command] async fn`
@@ -75,18 +119,30 @@ fn set_key_inner(provider_id: &str, secret: &str) -> Result<(), KeyError> {
     }
     entry(provider_id)?
         .set_password(secret)
-        .map_err(KeyError::from)
+        .map_err(KeyError::from)?;
+    cache_put(provider_id, secret.to_string());
+    Ok(())
 }
 
 fn key_status_inner(provider_id: &str) -> Result<bool, KeyError> {
+    // A cached secret means "configured" without touching the keychain (no prompt).
+    if cache_get(provider_id).is_some() {
+        return Ok(true);
+    }
     match entry(provider_id)?.get_password() {
-        Ok(_) => Ok(true),
+        // Reading to check existence already unlocks it — cache so later reads
+        // (the proxy) don't prompt again.
+        Ok(secret) => {
+            cache_put(provider_id, secret);
+            Ok(true)
+        }
         Err(KeyringError::NoEntry) => Ok(false),
         Err(e) => Err(KeyError::from(e)),
     }
 }
 
 fn delete_key_inner(provider_id: &str) -> Result<(), KeyError> {
+    cache_remove(provider_id);
     match entry(provider_id)?.delete_credential() {
         Ok(()) => Ok(()),
         Err(KeyringError::NoEntry) => Ok(()),
@@ -167,6 +223,19 @@ mod tests {
                 // Environment surfaced an error reading status; acceptable headless.
             }
         }
+    }
+
+    #[test]
+    fn read_secret_served_from_cache_after_set() {
+        // set_key caches on success; a subsequent read must not depend on the
+        // keychain (and thus never re-prompts), even on a non-persistent backend.
+        let id = format!("cache-{}", std::process::id());
+        if set_key_inner(&id, "cached-secret").is_err() {
+            return; // no usable backend to set into
+        }
+        assert_eq!(read_secret(&id).expect("cached read"), "cached-secret");
+        let _ = delete_key_inner(&id);
+        assert!(cache_get(&id).is_none(), "delete must evict the cache");
     }
 
     #[test]
