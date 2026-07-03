@@ -20,7 +20,7 @@ import { toast } from 'sonner'
 import { useLingui } from '@lingui/react/macro'
 import { useServices } from '@/services/context'
 import { isErr } from '@/services/types'
-import type { PromptPart } from '@/prompts/types'
+import type { PromptPart, PromptService } from '@/prompts/types'
 import { nameSlices, type SliceBox } from '@/services/ai/naming'
 import { getStoreState, useStore } from '@/store'
 import type { MockupArtifact } from '@/store/types'
@@ -37,6 +37,31 @@ import { useModelAssignments } from './ai-settings'
 async function toMockupArtifact(blob: Blob): Promise<MockupArtifact> {
   const bitmap = await decodeImage(blob)
   return { bitmap, blob, width: bitmap.width, height: bitmap.height }
+}
+
+/**
+ * Render the `ui-asset-deconstruction` instruction to a plain prompt string for
+ * the 垫图 (`editImage`) path, appending the brief when present. `editImage`
+ * takes a rendered string (not a `promptRef`), so the managed prompt is resolved
+ * here just like `generateImages` does internally for the `promptRef` path.
+ */
+async function deconstructPromptText(
+  prompts: Pick<PromptService, 'render'>,
+  brief: string,
+): Promise<string> {
+  const rendered = await prompts.render({ id: 'ui-asset-deconstruction' })
+  return brief ? `${rendered.system}\n\n${brief}` : rendered.system
+}
+
+/** Multimodal parts for the chat-image (Gemini) deconstruct path: brief + mockup. */
+function buildDeconstructParts(
+  brief: string,
+  mockupBytes: Uint8Array,
+): PromptPart[] {
+  const parts: PromptPart[] = []
+  if (brief) parts.push({ type: 'text', text: brief })
+  parts.push({ type: 'image', image: mockupBytes })
+  return parts
 }
 
 /**
@@ -86,7 +111,7 @@ export function useGenerateMockup() {
  * fills the `board`/`slices` nodes unchanged.
  */
 export function useDeconstructMockup() {
-  const { generation } = useServices()
+  const { generation, providers, prompts } = useServices()
   const assignments = useModelAssignments()
   const loadImage = useStore((s) => s.loadImage)
 
@@ -99,19 +124,34 @@ export function useDeconstructMockup() {
       const mockup = snapshot.mockup
       if (!mockup) throw new Error('Generate or import a mockup first.')
 
-      const parts: PromptPart[] = []
       const brief = snapshot.brief.trim()
-      if (brief) parts.push({ type: 'text', text: brief })
-      parts.push({ type: 'image', image: await blobToBytes(mockup.blob) })
+      const mockupBytes = await blobToBytes(mockup.blob)
+
+      // 垫图: when the image slot is an OpenAI-shaped provider, the upstream
+      // mockup is a reference image the `/images/edits` endpoint conditions on
+      // (the OpenAI images path can't carry an input image otherwise). Gemini &
+      // other chat-image models keep the multimodal `generateImages` path, which
+      // already sends the mockup as an image part.
+      const configs = await providers.list()
+      const kind = configs.find((p) => p.id === image.providerId)?.kind
+      const useEdit = kind === 'openai' || kind === 'openai-compatible'
 
       snapshot.beginGen('deconstructing')
       try {
-        const result = await generation.generateImages({
-          providerId: image.providerId,
-          model: image.model,
-          promptRef: { id: 'ui-asset-deconstruction' },
-          input: parts,
-        })
+        const result = useEdit
+          ? await generation.editImage({
+              providerId: image.providerId,
+              model: image.model,
+              prompt: await deconstructPromptText(prompts, brief),
+              images: [mockupBytes],
+              inputFidelity: 'high',
+            })
+          : await generation.generateImages({
+              providerId: image.providerId,
+              model: image.model,
+              promptRef: { id: 'ui-asset-deconstruction' },
+              input: buildDeconstructParts(brief, mockupBytes),
+            })
         if (isErr(result)) throw new Error(result.error)
         const asset = result.data[0]
         if (!asset) throw new Error('The model returned no image.')

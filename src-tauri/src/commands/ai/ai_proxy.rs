@@ -95,7 +95,10 @@ impl From<KeyError> for ProxyError {
 /// Known kinds are pinned to their vendor domains over https. `openai-compatible`
 /// permits a user-configured host (any https host) but blocks loopback/unspecified
 /// addresses to avoid trivial local SSRF. Unknown kinds are rejected.
-fn enforce_host(kind: &str, url: &str) -> Result<(), ProxyError> {
+///
+/// `pub(crate)` so the sibling multipart `image_edit` command reuses the same
+/// host guard for the `/images/edits` endpoint.
+pub(crate) fn enforce_host(kind: &str, url: &str) -> Result<(), ProxyError> {
     let parsed = reqwest::Url::parse(url).map_err(|_| ProxyError::BadUrl)?;
     let host = parsed
         .host_str()
@@ -187,7 +190,10 @@ fn collect_headers(resp: &reqwest::Response) -> HashMap<String, String> {
 /// request — set for buffered calls (image generation can be slow but must not
 /// hang forever); left `None` for streaming so long token streams aren't cut. A
 /// connect timeout applies either way. Falls back to the default client on error.
-fn build_client(overall: Option<u64>) -> reqwest::Client {
+///
+/// `pub(crate)` so the sibling multipart `image_edit` command reuses the same
+/// buffered client (a 120s overall cap) for the `/images/edits` call.
+pub(crate) fn build_client(overall: Option<u64>) -> reqwest::Client {
     let mut builder =
         reqwest::Client::builder().connect_timeout(std::time::Duration::from_secs(30));
     if let Some(secs) = overall {

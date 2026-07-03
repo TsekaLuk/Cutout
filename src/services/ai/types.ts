@@ -60,6 +60,26 @@ export interface GeneratedAsset {
   readonly bytes: Uint8Array
 }
 
+/**
+ * Input for 垫图 / reference-conditioned image edit (spec §2/§A). Goes through
+ * the Rust `ai_image_edit` command (multipart `/images/edits`), NOT the AI SDK.
+ * `prompt` is a plain instruction string (the caller renders any managed prompt
+ * first); `images` are the reference-image bytes (`images[0]` is the 垫图 base).
+ */
+export interface EditImageInput {
+  readonly providerId: string
+  readonly model?: string
+  /** The edit instruction (screen brief / style spec). */
+  readonly prompt: string
+  /** Reference image bytes; the first is the primary 垫图 base. */
+  readonly images: readonly Uint8Array[]
+  /** Optional output size, e.g. `1024x1024` (endpoint default when unset). */
+  readonly size?: string
+  /** `high` (default) preserves the reference's style/features; `low` is looser. */
+  readonly inputFidelity?: 'high' | 'low'
+  readonly signal?: AbortSignal
+}
+
 /** What features call to produce text/images; infill etc. lands here later. */
 export interface GenerationService {
   /** Buffered generation. Never throws across the seam — returns a `Result`. */
@@ -68,6 +88,14 @@ export interface GenerationService {
   streamText(input: GenerateInput): AsyncIterable<string>
   /** Image generation via the AI SDK image path (`result.files`, spec §6). */
   generateImages(input: GenerateInput): Promise<Result<GeneratedAsset[]>>
+  /**
+   * 垫图 / reference-conditioned image edit (spec §2/§A). Sends the reference
+   * image(s) + prompt to the OpenAI-shaped `/images/edits` endpoint via the Rust
+   * `ai_image_edit` command (multipart — the AI SDK's `generateImage` can't do
+   * edits). Only openai / openai-compatible providers; returns PNG assets. Never
+   * throws across the seam — returns a `Result`.
+   */
+  editImage(input: EditImageInput): Promise<Result<GeneratedAsset[]>>
   /**
    * Structured generation (spec §8) — the AI SDK `generateText` +
    * `Output.object` path. Validates the model's reply against `schema` and

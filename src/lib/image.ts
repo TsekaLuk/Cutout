@@ -68,6 +68,21 @@ export function bytesToBlob(bytes: Uint8Array, type = 'image/png'): Blob {
   return new Blob([copy.buffer], { type })
 }
 
+/**
+ * Decode a base64 string into raw bytes. Used by the 垫图 image-edit path: the
+ * Rust `ai_image_edit` command returns the model's PNG as base64 (`b64_json`),
+ * which the service turns into a `GeneratedAsset`. `atob` is available in the
+ * Tauri webview; each char code is one byte of the decoded binary string.
+ */
+export function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
 /** Human-readable byte size, e.g. `3.2 MB`. */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`

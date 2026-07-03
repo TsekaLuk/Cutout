@@ -25,10 +25,13 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createGatewayProvider } from '@ai-sdk/gateway'
+import { invoke } from '@tauri-apps/api/core'
 import { err, isErr, ok } from '@/services/types'
 import type { Result } from '@/services/types'
 import type { PromptPart, PromptService } from '@/prompts/types'
+import { base64ToBytes } from '@/lib/image'
 import type {
+  EditImageInput,
   GeneratedAsset,
   GenerateInput,
   GenerationService,
@@ -304,6 +307,43 @@ export function createLocalGenerationService(
         const assets: GeneratedAsset[] = result.files
           .filter((file) => file.mediaType.startsWith('image/'))
           .map((file) => ({ mediaType: file.mediaType, bytes: file.uint8Array }))
+        return ok(assets)
+      } catch (error) {
+        return err(error instanceof Error ? error.message : String(error))
+      }
+    },
+
+    async editImage(input: EditImageInput): Promise<Result<GeneratedAsset[]>> {
+      const cfg = await resolveConfig(input.providerId)
+      if (!cfg) return err('provider not configured')
+      // The edits endpoint is OpenAI-shaped; other kinds have no `/images/edits`.
+      if (cfg.kind !== 'openai' && cfg.kind !== 'openai-compatible') {
+        return err('image edit requires an OpenAI-compatible provider')
+      }
+      if (!cfg.baseUrl) return err('provider has no base URL for image edit')
+      if (input.images.length === 0) {
+        return err('at least one reference image is required')
+      }
+      const modelId = resolveModel(cfg.kind, cfg.defaultModel, input.model)
+
+      // Bytes cross the Tauri IPC as number arrays → Rust `Vec<Vec<u8>>`. The
+      // real key is injected in Rust; the base64 reply is decoded to PNG bytes.
+      try {
+        const res = await invoke<{ images: string[] }>('ai_image_edit', {
+          providerId: cfg.id,
+          kind: cfg.kind,
+          baseUrl: cfg.baseUrl,
+          model: modelId,
+          prompt: input.prompt,
+          images: input.images.map((bytes) => Array.from(bytes)),
+          size: input.size ?? null,
+          inputFidelity: input.inputFidelity ?? 'high',
+        })
+        const assets: GeneratedAsset[] = res.images.map((b64) => ({
+          mediaType: 'image/png',
+          bytes: base64ToBytes(b64),
+        }))
+        if (assets.length === 0) return err('The model returned no image.')
         return ok(assets)
       } catch (error) {
         return err(error instanceof Error ? error.message : String(error))

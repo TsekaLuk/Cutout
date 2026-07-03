@@ -20,6 +20,8 @@ pub fn run() {
             // BYOK: secure AI transport proxy
             commands::ai::ai_proxy::ai_proxy_request,
             commands::ai::ai_proxy::ai_proxy_stream,
+            // BYOK: 垫图 reference-conditioned image edit (multipart /images/edits)
+            commands::ai::image_edit::ai_image_edit,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
