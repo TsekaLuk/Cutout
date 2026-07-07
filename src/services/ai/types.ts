@@ -103,6 +103,13 @@ export interface GenerationService {
    */
   editImage(input: EditImageInput): Promise<Result<GeneratedAsset[]>>
   /**
+   * Web-search research (best-effort grounding). Runs the model with the
+   * provider's built-in web-search tool (`input.prompt` is the research query)
+   * and returns a grounded text summary. Only openai / anthropic / google;
+   * never throws across the seam — callers degrade to no grounding on error.
+   */
+  research(input: GenerateInput): Promise<Result<string>>
+  /**
    * Structured generation (spec §8) — the AI SDK `generateText` +
    * `Output.object` path. Validates the model's reply against `schema` and
    * returns the typed object; used by vision slice-naming. Never throws across

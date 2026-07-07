@@ -17,6 +17,7 @@
 import {
   generateText as aiGenerateText,
   streamText as aiStreamText,
+  stepCountIs,
   Output,
 } from 'ai'
 import type { ModelMessage } from 'ai'
@@ -456,6 +457,54 @@ export function createLocalGenerationService(
   }
 
   return {
+    async research(input: GenerateInput): Promise<Result<string>> {
+      const cfg = await resolveConfig(input.providerId)
+      if (!cfg) return err('provider not configured')
+      const modelId = resolveModel(cfg.kind, cfg.defaultModel, input.model)
+      const fetch = tauriFetch(cfg.id, cfg.kind)
+      const baseURL = apiBaseUrl(cfg.kind, cfg.baseUrl)
+      const prompt = input.prompt ?? ''
+      const stopWhen = stepCountIs(4)
+      try {
+        if (cfg.kind === 'openai') {
+          const provider = createOpenAI({ apiKey: DUMMY_KEY, baseURL, fetch })
+          const { text } = await aiGenerateText({
+            model: provider(modelId),
+            prompt,
+            tools: { web_search: provider.tools.webSearchPreview({}) },
+            stopWhen,
+            abortSignal: input.signal,
+          })
+          return ok(text)
+        }
+        if (cfg.kind === 'anthropic') {
+          const provider = createAnthropic({ apiKey: DUMMY_KEY, baseURL, fetch })
+          const { text } = await aiGenerateText({
+            model: provider(modelId),
+            prompt,
+            tools: { web_search: provider.tools.webSearch_20250305({}) },
+            stopWhen,
+            abortSignal: input.signal,
+          })
+          return ok(text)
+        }
+        if (cfg.kind === 'google') {
+          const provider = createGoogleGenerativeAI({ apiKey: DUMMY_KEY, baseURL, fetch })
+          const { text } = await aiGenerateText({
+            model: provider(modelId),
+            prompt,
+            tools: { google_search: provider.tools.googleSearch({}) },
+            stopWhen,
+            abortSignal: input.signal,
+          })
+          return ok(text)
+        }
+        return err('Web search needs an OpenAI, Anthropic, or Google endpoint.')
+      } catch (error) {
+        return err(error instanceof Error ? error.message : String(error))
+      }
+    },
+
     async generateText(input: GenerateInput): Promise<Result<string>> {
       const prepared = await prepare(input)
       if (isErr(prepared)) return prepared

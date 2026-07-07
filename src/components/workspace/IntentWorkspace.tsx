@@ -4,12 +4,14 @@ import {
   Circle,
   ExternalLink,
   FileText,
+  Globe,
   ImageIcon,
   Layers3,
   Loader2,
   MessageCircle,
   MousePointerClick,
   PackageOpen,
+  Paperclip,
   Route,
   Scissors,
   Settings2,
@@ -57,7 +59,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { SourceCanvas } from '@/components/source/SourceCanvas'
 import { SliceGrid } from '@/components/slices/SliceGrid'
-import { bytesToBlob, decodeImage } from '@/lib/image'
+import { bytesToBlob, blobToBytes, decodeImage, isSupportedImage } from '@/lib/image'
 import { cn } from '@/lib/utils'
 
 type AssetStageId =
@@ -120,9 +122,65 @@ const SERIAL_REFERENCE_PAGE_LIMIT = 4
 type DesignMarkdownAsset = ReturnType<typeof useStore.getState>['designMarkdown']
 type GenerationError = ReturnType<typeof useStore.getState>['genError']
 
+/** A reference image attached to the brief (fed into design-system generation). */
+interface ReferenceAttachment {
+  readonly id: string
+  readonly name: string
+  readonly blob: Blob
+  /** `URL.createObjectURL(blob)` — revoked on removal / unmount. */
+  readonly url: string
+}
+
 export function IntentWorkspace() {
   const services = useServices()
   const [agentBusy, setAgentBusy] = useState(false)
+  const [attachments, setAttachments] = useState<readonly ReferenceAttachment[]>([])
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
+  // Track the live attachment list so unmount can revoke every object URL.
+  const attachmentsRef = useRef<readonly ReferenceAttachment[]>([])
+  attachmentsRef.current = attachments
+  useEffect(
+    () => () => {
+      for (const item of attachmentsRef.current) URL.revokeObjectURL(item.url)
+    },
+    [],
+  )
+
+  /** Attach files: markdown → the DESIGN.md contract; images → reference set. */
+  function onAttachFiles(files: FileList | null): void {
+    if (!files) return
+    for (const file of Array.from(files)) {
+      if (/\.(md|markdown|mdx)$/i.test(file.name)) {
+        void file
+          .text()
+          .then((content) =>
+            getStoreState().setDesignMarkdown({
+              name: file.name,
+              content,
+              importedAt: Date.now(),
+            }),
+          )
+      } else if (isSupportedImage(file)) {
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            name: file.name,
+            blob: file,
+            url: URL.createObjectURL(file),
+          },
+        ])
+      }
+    }
+  }
+
+  function removeAttachment(id: string): void {
+    setAttachments((prev) => {
+      const found = prev.find((item) => item.id === id)
+      if (found) URL.revokeObjectURL(found.url)
+      return prev.filter((item) => item.id !== id)
+    })
+  }
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null)
   const [workflowPhase, setWorkflowPhase] = useState<WorkflowPhase>('idle')
   const [prototypePlan, setPrototypePlan] = useState<PrototypePlan | null>(null)
@@ -295,6 +353,30 @@ export function IntentWorkspace() {
     }
   }
 
+  /**
+   * When web search is on, ground the brief before planning: run the provider's
+   * web-search tool and append a concise factual summary. Best-effort — any
+   * failure (unsupported provider, tool error) returns the brief unchanged.
+   */
+  async function researchedBrief(text: string): Promise<string> {
+    if (!webSearchEnabled) return text
+    const chat = assignments.data?.chat
+    if (!chat) return text
+    const result = await services.generation.research({
+      providerId: chat.providerId,
+      model: chat.model,
+      prompt: [
+        'Research this product brief on the web. Return a concise, factual grounding',
+        'summary: key facts, domain conventions, notable brands/competitors, and',
+        'constraints. No preamble, no markdown headings.',
+        '',
+        text,
+      ].join('\n'),
+    })
+    if (isErr(result) || !result.data.trim()) return text
+    return `${text}\n\n[Web research grounding]\n${result.data.trim()}`
+  }
+
   async function createAssets(): Promise<void> {
     const text = brief.trim()
     if (!text) return
@@ -321,10 +403,11 @@ export function IntentWorkspace() {
     setAgentBusy(true)
     try {
       let plan = prototypePlan
-      let generationBrief = text
+      const plannerBrief = await researchedBrief(text)
+      let generationBrief = plannerBrief
 
       if (!plan) {
-        plan = await planPrototypeSuite(text)
+        plan = await planPrototypeSuite(plannerBrief)
         if (plan.humanLoop.mode === 'ask') return
       }
 
@@ -334,7 +417,7 @@ export function IntentWorkspace() {
           humanLoopChoiceId,
           humanLoopCustomAnswer,
         )
-        generationBrief = composeHumanLoopRequirement(text, plan.humanLoop, answer)
+        generationBrief = composeHumanLoopRequirement(plannerBrief, plan.humanLoop, answer)
         plan = await planPrototypeSuite(generationBrief)
         if (plan.humanLoop.mode === 'ask') return
       }
@@ -501,11 +584,31 @@ export function IntentWorkspace() {
     chat: ModelAssignment,
     designMarkdown: string | undefined,
   ): Promise<PrototypeDesignSystemArtifact> {
-    const result = await services.generation.generateImages({
-      providerId: image.providerId,
-      model: image.model,
-      prompt: prototypeDesignSystemPrompt(plan, designMarkdown),
-    })
+    const prompt = prototypeDesignSystemPrompt(plan, designMarkdown)
+    // Attached reference images condition the design system on the user's visual
+    // direction (垫图, via editImage). editImage is provider-specific, so on
+    // failure — or with no attachments — fall back to a plain prompt generate.
+    const references = await Promise.all(
+      attachments.map((attachment) => blobToBytes(attachment.blob)),
+    )
+    const edited =
+      references.length > 0
+        ? await services.generation.editImage({
+            providerId: image.providerId,
+            model: image.model,
+            prompt,
+            images: references,
+            inputFidelity: 'high',
+          })
+        : null
+    const result =
+      edited && !isErr(edited)
+        ? edited
+        : await services.generation.generateImages({
+            providerId: image.providerId,
+            model: image.model,
+            prompt,
+          })
     if (isErr(result)) throw new Error(result.error)
     const asset = result.data[0]
     if (!asset) throw new Error('The model returned no design-system reference.')
@@ -712,6 +815,11 @@ export function IntentWorkspace() {
         onBriefChange={updateBrief}
         importedDesignMarkdown={importedDesignMarkdown}
         onClearDesignMarkdown={clearDesignMarkdown}
+        attachments={attachments}
+        onAttachFiles={onAttachFiles}
+        onRemoveAttachment={removeAttachment}
+        webSearchEnabled={webSearchEnabled}
+        onToggleWebSearch={() => setWebSearchEnabled((value) => !value)}
         onOpenSettings={settings.open}
         working={working}
         workflowPhase={workflowPhase}
@@ -782,6 +890,11 @@ function WorkspaceSidebar({
   onBriefChange,
   importedDesignMarkdown,
   onClearDesignMarkdown,
+  attachments,
+  onAttachFiles,
+  onRemoveAttachment,
+  webSearchEnabled,
+  onToggleWebSearch,
   onOpenSettings,
   working,
   workflowPhase,
@@ -803,6 +916,11 @@ function WorkspaceSidebar({
   readonly onBriefChange: (text: string) => void
   readonly importedDesignMarkdown: DesignMarkdownAsset
   readonly onClearDesignMarkdown: () => void
+  readonly attachments: readonly ReferenceAttachment[]
+  readonly onAttachFiles: (files: FileList | null) => void
+  readonly onRemoveAttachment: (id: string) => void
+  readonly webSearchEnabled: boolean
+  readonly onToggleWebSearch: () => void
   readonly onOpenSettings: () => void
   readonly working: boolean
   readonly workflowPhase: WorkflowPhase
@@ -820,6 +938,7 @@ function WorkspaceSidebar({
   readonly genError: GenerationError
   readonly runError: string | null
 }) {
+  const attachInputRef = useRef<HTMLInputElement | null>(null)
   const plannedPages = prototypePlan?.pages ?? []
   const primaryCount = prototypePlan
     ? pagesForScope(prototypePlan, 'primary-flow').length
@@ -855,6 +974,68 @@ function WorkspaceSidebar({
               placeholder="Describe the target product, audience, platform, and visual direction."
               className="min-h-[13.5rem] resize-none rounded-md bg-muted/15 text-sm leading-6"
             />
+
+            <div className="flex items-center gap-1">
+              <input
+                ref={attachInputRef}
+                type="file"
+                accept="image/*,.md,.markdown,.mdx"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  onAttachFiles(event.target.files)
+                  event.target.value = ''
+                }}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Attach reference images or a DESIGN.md"
+                onClick={() => attachInputRef.current?.click()}
+              >
+                <Paperclip className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant={webSearchEnabled ? 'secondary' : 'ghost'}
+                size="icon-sm"
+                aria-pressed={webSearchEnabled}
+                aria-label="Web search"
+                onClick={onToggleWebSearch}
+              >
+                <Globe className="size-4" />
+              </Button>
+            </div>
+
+            {attachments.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {attachments.map((attachment) => (
+                  <span
+                    key={attachment.id}
+                    className="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/20 py-1 pr-1.5 pl-1"
+                  >
+                    <img
+                      src={attachment.url}
+                      alt=""
+                      className="size-6 shrink-0 rounded object-cover"
+                    />
+                    <span className="max-w-[7.5rem] truncate text-[11px] text-muted-foreground">
+                      {attachment.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${attachment.name}`}
+                      className="shrink-0 rounded text-muted-foreground opacity-70 transition hover:text-foreground hover:opacity-100"
+                      onClick={() => onRemoveAttachment(attachment.id)}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
             <Button
               size="lg"
               className="h-10 w-full transition-transform active:scale-[0.99]"
