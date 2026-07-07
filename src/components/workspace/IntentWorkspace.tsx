@@ -137,10 +137,8 @@ type DesignMarkdownAsset = ReturnType<typeof useStore.getState>['designMarkdown'
 type GenerationError = ReturnType<typeof useStore.getState>['genError']
 
 export function IntentWorkspace({
-  onOpenFileWorkspace,
   onArchiveProject,
 }: {
-  readonly onOpenFileWorkspace: () => void
   readonly onArchiveProject: () => void
 }) {
   const services = useServices()
@@ -894,7 +892,6 @@ export function IntentWorkspace({
         attachments={attachments}
         onAttachFiles={onAttachFiles}
         onRemoveAttachment={removeAttachment}
-        onOpenFileWorkspace={onOpenFileWorkspace}
         onArchiveProject={onArchiveProject}
         webSearchEnabled={webSearchEnabled}
         onToggleWebSearch={() => setWebSearchEnabled((value) => !value)}
@@ -973,7 +970,6 @@ function WorkspaceSidebar({
   attachments,
   onAttachFiles,
   onRemoveAttachment,
-  onOpenFileWorkspace,
   onArchiveProject,
   webSearchEnabled,
   onToggleWebSearch,
@@ -1013,7 +1009,6 @@ function WorkspaceSidebar({
   readonly attachments: readonly ReferenceAttachment[]
   readonly onAttachFiles: (files: FileList | null) => void
   readonly onRemoveAttachment: (id: string) => void
-  readonly onOpenFileWorkspace: () => void
   readonly onArchiveProject: () => void
   readonly webSearchEnabled: boolean
   readonly onToggleWebSearch: () => void
@@ -1121,7 +1116,6 @@ function WorkspaceSidebar({
               sliceCount={sliceCount}
               working={working}
               workflowPhase={workflowPhase}
-              onOpenFileWorkspace={onOpenFileWorkspace}
               onArchiveProject={onArchiveProject}
             />
           ) : working ? (
@@ -1378,7 +1372,6 @@ function FileWorkspacePanel({
   sliceCount,
   working,
   workflowPhase,
-  onOpenFileWorkspace,
   onArchiveProject,
 }: {
   readonly brief: string
@@ -1391,7 +1384,6 @@ function FileWorkspacePanel({
   readonly sliceCount: number
   readonly working: boolean
   readonly workflowPhase: WorkflowPhase
-  readonly onOpenFileWorkspace: () => void
   readonly onArchiveProject: () => void
 }) {
   const plannedPages = prototypePlan?.pages ?? []
@@ -1414,29 +1406,6 @@ function FileWorkspacePanel({
         <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
           {brief.trim() || 'No intent yet.'}
         </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="justify-start"
-          onClick={onOpenFileWorkspace}
-        >
-          <ExternalLink className="size-3.5" />
-          Files
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="justify-start"
-          onClick={onArchiveProject}
-        >
-          <Archive className="size-3.5" />
-          Archive
-        </Button>
       </div>
 
       <section className="rounded-lg border border-border bg-muted/10 p-3">
@@ -1544,6 +1513,24 @@ function FileWorkspacePanel({
           <FileEmptyRow label="Attach images or DESIGN.md from Agent." />
         )}
       </FileSection>
+
+      <section className="rounded-lg border border-border bg-background p-3">
+        <p className="text-xs font-semibold">Project actions</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Move this project out of active files. It can be restored from the
+          Archived view on Home.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-3 w-full justify-start"
+          onClick={onArchiveProject}
+        >
+          <Archive className="size-3.5" />
+          Move to archive
+        </Button>
+      </section>
     </section>
   )
 }
