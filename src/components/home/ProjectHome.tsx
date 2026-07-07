@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertCircle,
   ArrowRight,
   Clock3,
   FileText,
@@ -7,11 +8,13 @@ import {
   LayoutGrid,
   List,
   Plus,
+  RefreshCw,
   Scissors,
   Sparkles,
   Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +31,7 @@ import { cn } from '@/lib/utils'
 
 type ProjectFilter = 'all' | 'ready' | 'draft' | 'empty'
 type ProjectViewMode = 'grid' | 'list'
+type ProjectLoadState = 'loading' | 'ready' | 'error'
 
 const PROJECT_HOME_VIEW_MODE_KEY = 'cutout.home.projectViewMode'
 const PROJECT_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
@@ -38,19 +42,27 @@ const PROJECT_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
 interface ProjectHomeProps {
   readonly activeProjectId: string | null
   readonly projects: readonly LocalProjectSummary[]
+  readonly loadState: ProjectLoadState
+  readonly loadError: string | null
   readonly onOpenProject: (id: string) => void
   readonly onDeleteProject: (id: string) => void
   readonly onNewProject: () => void
+  readonly onRetryProjects: () => void
 }
 
 export function ProjectHome({
   activeProjectId,
   projects,
+  loadState,
+  loadError,
   onOpenProject,
   onDeleteProject,
   onNewProject,
+  onRetryProjects,
 }: ProjectHomeProps) {
   const hasProjects = projects.length > 0
+  const loading = loadState === 'loading'
+  const failed = loadState === 'error'
   const [filter, setFilter] = useState<ProjectFilter>('all')
   const [viewMode, setViewMode] = useState<ProjectViewMode>(
     readProjectHomeViewMode,
@@ -138,13 +150,22 @@ export function ProjectHome({
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold">{filterTitle(filter)}</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {visibleProjects.length} local
+                  {loading
+                    ? 'Loading local projects...'
+                    : `${visibleProjects.length} local`}
                 </p>
               </div>
               <ViewModeToggle value={viewMode} onChange={setViewMode} />
             </div>
 
-            {hasVisibleProjects ? (
+            {loading ? (
+              <ProjectHomeSkeleton viewMode={viewMode} />
+            ) : failed ? (
+              <ProjectHomeError
+                error={loadError ?? 'Project storage could not be loaded.'}
+                onRetry={onRetryProjects}
+              />
+            ) : hasVisibleProjects ? (
               viewMode === 'grid' ? (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {visibleProjects.map((project) => (
@@ -177,6 +198,96 @@ export function ProjectHome({
         </div>
       </section>
     </main>
+  )
+}
+
+function ProjectHomeSkeleton({
+  viewMode,
+}: {
+  readonly viewMode: ProjectViewMode
+}) {
+  if (viewMode === 'list') {
+    return (
+      <div className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+        <div className="hidden grid-cols-[minmax(18rem,1fr)_8.5rem_6rem_7.5rem_7rem] gap-4 border-b border-border px-4 py-3 lg:grid">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="h-3 w-14" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+        <div className="divide-y divide-border">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div
+              key={index}
+              className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(18rem,1fr)_8.5rem_6rem_7.5rem_7rem] lg:items-center lg:gap-4"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <Skeleton className="size-11 rounded-lg" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-3 w-64 max-w-full" />
+                </div>
+              </div>
+              <Skeleton className="hidden h-3 w-20 lg:block" />
+              <Skeleton className="hidden h-3 w-8 lg:block" />
+              <Skeleton className="hidden h-3 w-16 lg:block" />
+              <Skeleton className="hidden h-3 w-14 lg:block" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: 3 }, (_, index) => (
+        <div
+          key={index}
+          className="overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+        >
+          <Skeleton className="aspect-[16/10] w-full rounded-none" />
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-3 w-full" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-16 rounded-full" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ProjectHomeError({
+  error,
+  onRetry,
+}: {
+  readonly error: string
+  readonly onRetry: () => void
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+      <div className="flex min-w-0 gap-3">
+        <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-destructive">
+            Could not load projects
+          </h3>
+          <p className="mt-1 break-words text-sm leading-6 text-destructive/80">
+            {error}
+          </p>
+        </div>
+      </div>
+      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+        <RefreshCw className="size-3.5" />
+        Retry
+      </Button>
+    </div>
   )
 }
 

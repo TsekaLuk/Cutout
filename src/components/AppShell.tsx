@@ -49,9 +49,12 @@ import { isErr } from '@/services/types'
 import { cn } from '@/lib/utils'
 
 type AppView = 'home' | 'project'
+type ProjectLoadState = 'loading' | 'ready' | 'error'
 
 interface ProjectShellState {
   readonly projects: readonly LocalProjectSummary[]
+  readonly projectLoadState: ProjectLoadState
+  readonly projectLoadError: string | null
   readonly activeProjectId: string | null
   readonly view: AppView
   readonly projectTabOpen: boolean
@@ -59,11 +62,13 @@ interface ProjectShellState {
 }
 
 type ProjectShellAction =
+  | { readonly type: 'projects-loading' }
   | {
       readonly type: 'projects-loaded'
       readonly projects: readonly LocalProjectSummary[]
       readonly activeProjectId: string | null
     }
+  | { readonly type: 'projects-load-failed'; readonly error: string }
   | { readonly type: 'open-home' }
   | { readonly type: 'open-project'; readonly id: string }
   | { readonly type: 'close-project' }
@@ -73,6 +78,8 @@ type ProjectShellAction =
 
 const INITIAL_PROJECT_SHELL_STATE: ProjectShellState = {
   projects: [],
+  projectLoadState: 'loading',
+  projectLoadError: null,
   activeProjectId: null,
   view: 'home',
   projectTabOpen: false,
@@ -84,13 +91,27 @@ function projectShellReducer(
   action: ProjectShellAction,
 ): ProjectShellState {
   switch (action.type) {
+    case 'projects-loading':
+      return {
+        ...state,
+        projectLoadState: 'loading',
+        projectLoadError: null,
+      }
     case 'projects-loaded':
       return {
         ...state,
         projects: action.projects,
+        projectLoadState: 'ready',
+        projectLoadError: null,
         activeProjectId: action.activeProjectId,
         view: 'home',
         projectTabOpen: false,
+      }
+    case 'projects-load-failed':
+      return {
+        ...state,
+        projectLoadState: 'error',
+        projectLoadError: action.error,
       }
     case 'open-home':
       return { ...state, view: 'home' }
@@ -107,6 +128,8 @@ function projectShellReducer(
     case 'create-project':
       return {
         ...state,
+        projectLoadState: 'ready',
+        projectLoadError: null,
         activeProjectId: action.project.id,
         view: 'project',
         projectTabOpen: true,
@@ -128,6 +151,8 @@ function projectShellReducer(
     case 'autosaved':
       return {
         ...state,
+        projectLoadState: 'ready',
+        projectLoadError: null,
         projects: [
           action.project,
           ...state.projects.filter((item) => item.id !== action.project.id),
@@ -157,6 +182,8 @@ export function AppShell() {
   )
   const {
     projects,
+    projectLoadState,
+    projectLoadError,
     activeProjectId,
     view,
     projectTabOpen,
@@ -173,13 +200,16 @@ export function AppShell() {
     projectsRef.current = projects
   }, [projects])
 
-  useEffect(() => {
-    let canceled = false
-
-    async function loadProjects() {
+  const loadProjects = useCallback(
+    async (isCanceled: () => boolean = () => false) => {
+      dispatchProjectShell({ type: 'projects-loading' })
       const result = await projectRepository.list()
-      if (canceled) return
+      if (isCanceled()) return
       if (isErr(result)) {
+        dispatchProjectShell({
+          type: 'projects-load-failed',
+          error: result.error,
+        })
         toast.error('Could not load projects', { description: result.error })
         return
       }
@@ -192,20 +222,23 @@ export function AppShell() {
         )
       }
 
-      if (!canceled) {
-        dispatchProjectShell({
-          type: 'projects-loaded',
-          projects: rows,
-          activeProjectId: rows[0]?.id ?? null,
-        })
-      }
-    }
+      if (isCanceled()) return
+      dispatchProjectShell({
+        type: 'projects-loaded',
+        projects: rows,
+        activeProjectId: rows[0]?.id ?? null,
+      })
+    },
+    [projectRepository],
+  )
 
-    void loadProjects()
+  useEffect(() => {
+    let canceled = false
+    void loadProjects(() => canceled)
     return () => {
       canceled = true
     }
-  }, [projectRepository])
+  }, [loadProjects])
 
   // Settings dialog open-state lives here so both the TopBar gear (via the
   // SettingsUI context) and the ⌘, hotkey can open it.
@@ -395,9 +428,12 @@ export function AppShell() {
             <ProjectHome
               activeProjectId={activeProjectId}
               projects={projects}
+              loadState={projectLoadState}
+              loadError={projectLoadError}
               onOpenProject={(id) => void openProjectById(id)}
               onDeleteProject={(id) => void deleteProject(id)}
               onNewProject={requestNewProject}
+              onRetryProjects={() => void loadProjects()}
             />
           ) : null}
           <div className={cn('min-h-0 flex-1', view === 'project' ? 'flex' : 'hidden')}>
