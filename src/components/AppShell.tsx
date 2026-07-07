@@ -89,6 +89,8 @@ function projectShellReducer(
         ...state,
         projects: action.projects,
         activeProjectId: action.activeProjectId,
+        view: 'home',
+        projectTabOpen: false,
       }
     case 'open-home':
       return { ...state, view: 'home' }
@@ -106,10 +108,6 @@ function projectShellReducer(
       return {
         ...state,
         activeProjectId: action.project.id,
-        projects: [
-          action.project,
-          ...state.projects.filter((item) => item.id !== action.project.id),
-        ],
         view: 'project',
         projectTabOpen: true,
         projectVersion: state.projectVersion + 1,
@@ -170,10 +168,6 @@ export function AppShell() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const projectName = useMemo(() => projectNameFromBrief(brief), [brief])
-  const activeProject = useMemo(
-    () => projects.find((project) => project.id === activeProjectId) ?? null,
-    [activeProjectId, projects],
-  )
 
   useEffect(() => {
     projectsRef.current = projects
@@ -190,18 +184,12 @@ export function AppShell() {
         return
       }
 
-      let rows: LocalProjectSummary[] = result.data
-      if (rows.length === 0) {
-        const empty = createEmptyProjectRecord()
-        const saved = await projectRepository.save(empty)
-        if (!canceled && isErr(saved)) {
-          toast.error('Could not create a local project', {
-            description: saved.error,
-          })
-          return
-        }
-        activeRecordRef.current = empty
-        rows = [empty]
+      const rows = result.data.filter((project) => !isDisposableEmptyProject(project))
+      const disposable = result.data.filter(isDisposableEmptyProject)
+      if (disposable.length > 0) {
+        await Promise.all(
+          disposable.map((project) => projectRepository.remove(project.id)),
+        )
       }
 
       if (!canceled) {
@@ -270,11 +258,6 @@ export function AppShell() {
   }, [])
   const newProject = useCallback(async () => {
     const project = createEmptyProjectRecord()
-    const saved = await projectRepository.save(project)
-    if (isErr(saved)) {
-      toast.error('Could not create project', { description: saved.error })
-      return
-    }
 
     restoringRef.current = true
     activeRecordRef.current = project
@@ -283,7 +266,7 @@ export function AppShell() {
     queueMicrotask(() => {
       restoringRef.current = false
     })
-  }, [projectRepository, resetProject])
+  }, [resetProject])
   const requestNewProject = useCallback(() => {
     void newProject()
   }, [newProject])
@@ -319,6 +302,8 @@ export function AppShell() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
 
     saveTimerRef.current = setTimeout(() => {
+      const state = getStoreState()
+      if (!shouldPersistWorkspace(state)) return
       const current = projectsRef.current.find(
         (project) => project.id === activeProjectId,
       )
@@ -330,7 +315,7 @@ export function AppShell() {
       void createProjectRecordFromStore({
         id: activeProjectId,
         createdAt,
-        state: getStoreState(),
+        state,
         previous,
       }).then(async (record) => {
         const saved = await projectRepository.save(record)
@@ -409,7 +394,6 @@ export function AppShell() {
           {view === 'home' ? (
             <ProjectHome
               activeProjectId={activeProjectId}
-              currentProject={activeProject}
               projects={projects}
               onOpenProject={(id) => void openProjectById(id)}
               onDeleteProject={(id) => void deleteProject(id)}
@@ -432,6 +416,26 @@ function projectNameFromBrief(brief: string): string {
   const firstLine = brief.trim().split(/\n+/)[0]?.trim()
   if (!firstLine) return 'Untitled project'
   return firstLine.length > 42 ? `${firstLine.slice(0, 42)}...` : firstLine
+}
+
+function isDisposableEmptyProject(project: LocalProjectSummary): boolean {
+  return (
+    project.brief.trim().length === 0 &&
+    project.assetCount === 0 &&
+    !project.hasDesignMarkdown &&
+    project.status === 'Empty' &&
+    !project.thumbnail
+  )
+}
+
+function shouldPersistWorkspace(state: ReturnType<typeof getStoreState>): boolean {
+  return Boolean(
+    state.brief.trim() ||
+      state.source.bitmap ||
+      state.mockup ||
+      state.designMarkdown ||
+      state.analysis.slices.length > 0,
+  )
 }
 
 function workspaceAutosaveFingerprint(state: ReturnType<typeof getStoreState>): string {

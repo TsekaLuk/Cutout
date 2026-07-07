@@ -1,11 +1,13 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   Clock3,
   FileText,
   Images,
+  LayoutGrid,
   Plus,
   Scissors,
+  Sparkles,
   Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -23,9 +25,10 @@ import {
 import type { LocalProjectSummary } from '@/services/local/project-repository.local'
 import { cn } from '@/lib/utils'
 
+type ProjectFilter = 'all' | 'ready' | 'draft' | 'empty'
+
 interface ProjectHomeProps {
   readonly activeProjectId: string | null
-  readonly currentProject: LocalProjectSummary | null
   readonly projects: readonly LocalProjectSummary[]
   readonly onOpenProject: (id: string) => void
   readonly onDeleteProject: (id: string) => void
@@ -34,13 +37,19 @@ interface ProjectHomeProps {
 
 export function ProjectHome({
   activeProjectId,
-  currentProject,
   projects,
   onOpenProject,
   onDeleteProject,
   onNewProject,
 }: ProjectHomeProps) {
   const hasProjects = projects.length > 0
+  const [filter, setFilter] = useState<ProjectFilter>('all')
+  const counts = useMemo(() => projectCounts(projects), [projects])
+  const visibleProjects = useMemo(
+    () => projects.filter((project) => projectMatchesFilter(project, filter)),
+    [filter, projects],
+  )
+  const hasVisibleProjects = visibleProjects.length > 0
 
   return (
     <main className="flex min-h-0 flex-1 bg-background">
@@ -55,28 +64,54 @@ export function ProjectHome({
           </div>
         </div>
 
-        <nav className="mt-5 space-y-1">
-          <HomeNavItem icon={Clock3} label="Recents" active />
-        </nav>
+        <Button
+          type="button"
+          className="mt-5 w-full justify-start"
+          onClick={onNewProject}
+        >
+          <Plus className="size-4" />
+          New project
+        </Button>
 
-        <div className="mt-auto rounded-md border border-border bg-background p-3">
-          <p className="text-xs font-medium text-muted-foreground">Current</p>
-          <p className="mt-1 truncate text-sm font-semibold">
-            {currentProject?.name ?? 'No project'}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {currentProject
-              ? `${currentProject.assetCount} assets · ${currentProject.status}`
-              : 'Create a project to begin'}
-          </p>
-        </div>
+        <nav className="mt-5 space-y-1" aria-label="Project filters">
+          <FilterItem
+            icon={LayoutGrid}
+            label="All projects"
+            count={counts.all}
+            active={filter === 'all'}
+            onClick={() => setFilter('all')}
+          />
+          <FilterItem
+            icon={Sparkles}
+            label="Ready"
+            count={counts.ready}
+            active={filter === 'ready'}
+            onClick={() => setFilter('ready')}
+          />
+          <FilterItem
+            icon={FileText}
+            label="Drafts"
+            count={counts.draft}
+            active={filter === 'draft'}
+            onClick={() => setFilter('draft')}
+          />
+          <FilterItem
+            icon={Clock3}
+            label="Empty"
+            count={counts.empty}
+            active={filter === 'empty'}
+            onClick={() => setFilter('empty')}
+          />
+        </nav>
       </aside>
 
       <section className="min-w-0 flex-1 overflow-y-auto bg-muted/15">
         <div className="mx-auto w-full max-w-6xl px-6 py-8">
           <header className="border-b border-border pb-6">
             <p className="text-sm font-medium text-muted-foreground">Home</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Projects</h1>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+              Projects
+            </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
               Open a local project or start a clean one.
             </p>
@@ -84,45 +119,138 @@ export function ProjectHome({
 
           <section className="mt-6">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Recently viewed</h2>
+              <h2 className="text-sm font-semibold">{filterTitle(filter)}</h2>
               <span className="rounded-full border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
-                Local
+                {visibleProjects.length} local
               </span>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {projects.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  active={project.id === activeProjectId}
-                  onOpen={() => onOpenProject(project.id)}
-                  onDelete={() => onDeleteProject(project.id)}
-                />
-              ))}
-
-              <button
-                type="button"
-                className={cn(
-                  'flex min-h-[17rem] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background/65 p-6 text-center transition-colors hover:border-foreground/30 hover:bg-background',
-                  !hasProjects && 'md:col-span-2 xl:col-span-1',
-                )}
-                onClick={onNewProject}
-              >
-                <div className="flex size-12 items-center justify-center rounded-lg border border-border bg-muted/40">
-                  <Plus className="size-5 text-muted-foreground" />
-                </div>
-                <h3 className="mt-4 text-sm font-semibold">New project</h3>
-                <p className="mt-2 max-w-56 text-sm leading-6 text-muted-foreground">
-                  Start from one intent and let the Agent plan the prototype suite.
-                </p>
-              </button>
-            </div>
+            {hasVisibleProjects ? (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleProjects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    active={project.id === activeProjectId}
+                    onOpen={() => onOpenProject(project.id)}
+                    onDelete={() => onDeleteProject(project.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyProjectState
+                hasProjects={hasProjects}
+                filter={filter}
+                onNewProject={onNewProject}
+              />
+            )}
           </section>
         </div>
       </section>
     </main>
   )
+}
+
+function EmptyProjectState({
+  hasProjects,
+  filter,
+  onNewProject,
+}: {
+  readonly hasProjects: boolean
+  readonly filter: ProjectFilter
+  readonly onNewProject: () => void
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <button
+        type="button"
+        className={cn(
+          'flex min-h-[17rem] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background/65 p-6 text-center transition-colors hover:border-foreground/30 hover:bg-background',
+          !hasProjects && 'md:col-span-2 xl:col-span-2',
+        )}
+        onClick={onNewProject}
+      >
+        <div className="flex size-12 items-center justify-center rounded-lg border border-border bg-muted/40">
+          <Plus className="size-5 text-muted-foreground" />
+        </div>
+        <h3 className="mt-4 text-sm font-semibold">New project</h3>
+        <p className="mt-2 max-w-56 text-sm leading-6 text-muted-foreground">
+          {hasProjects
+            ? `No ${filterTitle(filter).toLowerCase()} yet.`
+            : 'Start from one intent and let the Agent plan the prototype suite.'}
+        </p>
+      </button>
+    </div>
+  )
+}
+
+function FilterItem({
+  icon: Icon,
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  readonly icon: typeof LayoutGrid
+  readonly label: string
+  readonly count: number
+  readonly active: boolean
+  readonly onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors',
+        active
+          ? 'bg-muted text-foreground'
+          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+      )}
+      onClick={onClick}
+    >
+      <Icon className="size-4" />
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+        {count}
+      </span>
+    </button>
+  )
+}
+
+function projectCounts(projects: readonly LocalProjectSummary[]) {
+  return {
+    all: projects.length,
+    ready: projects.filter((project) => project.status === 'Ready').length,
+    draft: projects.filter(
+      (project) => project.status === 'Draft' || project.status === 'Running',
+    ).length,
+    empty: projects.filter((project) => project.status === 'Empty').length,
+  }
+}
+
+function projectMatchesFilter(
+  project: LocalProjectSummary,
+  filter: ProjectFilter,
+): boolean {
+  if (filter === 'all') return true
+  if (filter === 'ready') return project.status === 'Ready'
+  if (filter === 'draft') {
+    return project.status === 'Draft' || project.status === 'Running'
+  }
+  return project.status === 'Empty'
+}
+
+function filterTitle(filter: ProjectFilter): string {
+  switch (filter) {
+    case 'ready':
+      return 'Ready'
+    case 'draft':
+      return 'Drafts'
+    case 'empty':
+      return 'Empty'
+    case 'all':
+      return 'Recently viewed'
+  }
 }
 
 function ProjectCard({
@@ -184,7 +312,7 @@ function ProjectCard({
             variant="ghost"
             size="icon-sm"
             aria-label={`Delete ${project.name}`}
-            className="absolute right-2 top-2 opacity-0 shadow-sm transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+            className="absolute right-2 top-2 bg-background/90 shadow-sm transition-colors hover:text-destructive"
             onClick={(event) => event.stopPropagation()}
           >
             <Trash2 className="size-3.5" />
@@ -220,28 +348,6 @@ function ProjectThumbnail({ blob }: { readonly blob: Blob }) {
       alt=""
       className="max-h-full max-w-full object-contain drop-shadow-sm"
     />
-  )
-}
-
-function HomeNavItem({
-  icon: Icon,
-  label,
-  active = false,
-}: {
-  readonly icon: typeof Clock3
-  readonly label: string
-  readonly active?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-2 rounded-md px-2 py-2 text-sm',
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground',
-      )}
-    >
-      <Icon className="size-4" />
-      <span>{label}</span>
-    </div>
   )
 }
 
