@@ -495,7 +495,13 @@ export function AppShell() {
             />
           ) : null}
           <div className={cn('min-h-0 flex-1', view === 'project' ? 'flex' : 'hidden')}>
-            <PipelineCanvas key={projectVersion} />
+            <PipelineCanvas
+              key={projectVersion}
+              onOpenFileWorkspace={openHome}
+              onArchiveProject={() => {
+                if (activeProjectId) void archiveProject(activeProjectId)
+              }}
+            />
           </div>
           {view === 'project' ? <StatusBar /> : null}
         </div>

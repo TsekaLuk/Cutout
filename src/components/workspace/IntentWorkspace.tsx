@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
+  Archive,
   ArrowUp,
   CheckCircle2,
   Circle,
@@ -90,6 +91,7 @@ type AssetStageId =
   | 'done'
 type WorkflowPhase = WorkspaceWorkflowPhase
 type NamingStatus = WorkspaceNamingStatus
+type WorkspaceSidebarSection = 'file' | 'agent'
 
 interface AssetStage {
   readonly id: Exclude<AssetStageId, 'idle'>
@@ -134,7 +136,13 @@ const SERIAL_REFERENCE_PAGE_LIMIT = 4
 type DesignMarkdownAsset = ReturnType<typeof useStore.getState>['designMarkdown']
 type GenerationError = ReturnType<typeof useStore.getState>['genError']
 
-export function IntentWorkspace() {
+export function IntentWorkspace({
+  onOpenFileWorkspace,
+  onArchiveProject,
+}: {
+  readonly onOpenFileWorkspace: () => void
+  readonly onArchiveProject: () => void
+}) {
   const services = useServices()
   const initialWorkspace = useStore((s) => s.workspaceSnapshot)
   const setWorkspaceSnapshot = useStore((s) => s.setWorkspaceSnapshot)
@@ -886,6 +894,8 @@ export function IntentWorkspace() {
         attachments={attachments}
         onAttachFiles={onAttachFiles}
         onRemoveAttachment={removeAttachment}
+        onOpenFileWorkspace={onOpenFileWorkspace}
+        onArchiveProject={onArchiveProject}
         webSearchEnabled={webSearchEnabled}
         onToggleWebSearch={() => setWebSearchEnabled((value) => !value)}
         agentMessages={agent.messages}
@@ -963,6 +973,8 @@ function WorkspaceSidebar({
   attachments,
   onAttachFiles,
   onRemoveAttachment,
+  onOpenFileWorkspace,
+  onArchiveProject,
   webSearchEnabled,
   onToggleWebSearch,
   agentMessages,
@@ -1001,6 +1013,8 @@ function WorkspaceSidebar({
   readonly attachments: readonly ReferenceAttachment[]
   readonly onAttachFiles: (files: FileList | null) => void
   readonly onRemoveAttachment: (id: string) => void
+  readonly onOpenFileWorkspace: () => void
+  readonly onArchiveProject: () => void
   readonly webSearchEnabled: boolean
   readonly onToggleWebSearch: () => void
   readonly agentMessages: readonly AgentMessage[]
@@ -1033,6 +1047,8 @@ function WorkspaceSidebar({
   readonly runError: string | null
 }) {
   const attachInputRef = useRef<HTMLInputElement | null>(null)
+  const [activeSection, setActiveSection] =
+    useState<WorkspaceSidebarSection>('agent')
   const plannedPages = prototypePlan?.pages ?? []
   const primaryCount = prototypePlan
     ? pagesForScope(prototypePlan, 'primary-flow').length
@@ -1050,11 +1066,16 @@ function WorkspaceSidebar({
         <SidebarRailItem
           icon={FileText}
           label="File"
-          active={false}
-          disabled
-          title="Project files live in Home."
+          active={activeSection === 'file'}
+          title="Project file"
+          onClick={() => setActiveSection('file')}
         />
-        <SidebarRailItem icon={WandSparkles} label="Agent" active />
+        <SidebarRailItem
+          icon={WandSparkles}
+          label="Agent"
+          active={activeSection === 'agent'}
+          onClick={() => setActiveSection('agent')}
+        />
         <SidebarRailItem
           icon={Layers3}
           label="Design"
@@ -1088,7 +1109,22 @@ function WorkspaceSidebar({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto p-4 pt-5">
-          {working ? (
+          {activeSection === 'file' ? (
+            <FileWorkspacePanel
+              brief={brief}
+              importedDesignMarkdown={importedDesignMarkdown}
+              attachments={attachments}
+              prototypePlan={prototypePlan}
+              prototypePages={prototypePages}
+              prototypeDesignSystem={prototypeDesignSystem}
+              hasSlices={hasSlices}
+              sliceCount={sliceCount}
+              working={working}
+              workflowPhase={workflowPhase}
+              onOpenFileWorkspace={onOpenFileWorkspace}
+              onArchiveProject={onArchiveProject}
+            />
+          ) : working ? (
             <AgentActivityPanel
               stage={activeStage}
               elapsedSeconds={elapsedSeconds}
@@ -1174,7 +1210,7 @@ function WorkspaceSidebar({
           ) : null}
         </div>
 
-        {/* Composer — one unified box, pinned to the bottom of the sidebar. */}
+        {activeSection === 'agent' ? (
         <div className="shrink-0 space-y-2 border-t border-border p-3">
           {attachments.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
@@ -1285,6 +1321,7 @@ function WorkspaceSidebar({
             />
           ) : null}
         </div>
+        ) : null}
       </div>
     </aside>
   )
@@ -1328,6 +1365,268 @@ function SidebarRailItem({
       <span className="leading-none">{label}</span>
     </button>
   )
+}
+
+function FileWorkspacePanel({
+  brief,
+  importedDesignMarkdown,
+  attachments,
+  prototypePlan,
+  prototypePages,
+  prototypeDesignSystem,
+  hasSlices,
+  sliceCount,
+  working,
+  workflowPhase,
+  onOpenFileWorkspace,
+  onArchiveProject,
+}: {
+  readonly brief: string
+  readonly importedDesignMarkdown: DesignMarkdownAsset
+  readonly attachments: readonly ReferenceAttachment[]
+  readonly prototypePlan: PrototypePlan | null
+  readonly prototypePages: readonly PrototypePageArtifact[]
+  readonly prototypeDesignSystem: PrototypeDesignSystemArtifact | null
+  readonly hasSlices: boolean
+  readonly sliceCount: number
+  readonly working: boolean
+  readonly workflowPhase: WorkflowPhase
+  readonly onOpenFileWorkspace: () => void
+  readonly onArchiveProject: () => void
+}) {
+  const plannedPages = prototypePlan?.pages ?? []
+  const generatedPageIds = new Set(prototypePages.map((artifact) => artifact.page.id))
+  const designState = prototypeDesignSystem
+    ? 'Generated'
+    : importedDesignMarkdown
+      ? 'Imported'
+      : prototypePlan
+        ? 'Draft'
+        : 'Waiting'
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <p className="text-xs font-medium text-muted-foreground">File</p>
+        <h2 className="mt-1 text-lg font-semibold tracking-tight">
+          {prototypePlan?.product.name || brief.trim().split(/\n+/)[0] || 'Untitled project'}
+        </h2>
+        <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
+          {brief.trim() || 'No intent yet.'}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="justify-start"
+          onClick={onOpenFileWorkspace}
+        >
+          <ExternalLink className="size-3.5" />
+          Files
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="justify-start"
+          onClick={onArchiveProject}
+        >
+          <Archive className="size-3.5" />
+          Archive
+        </Button>
+      </div>
+
+      <section className="rounded-lg border border-border bg-muted/10 p-3">
+        <div className="grid grid-cols-2 gap-2">
+          <FileMetric label="Status" value={working ? 'Running' : workflowPhaseLabel(workflowPhase)} />
+          <FileMetric label="Pages" value={`${prototypePages.length || plannedPages.length}`} />
+          <FileMetric label="Assets" value={`${hasSlices ? sliceCount : 0}`} />
+          <FileMetric label="Design" value={designState} />
+        </div>
+      </section>
+
+      <FileSection
+        icon={Route}
+        title="Pages"
+        count={plannedPages.length || prototypePages.length}
+      >
+        {plannedPages.length > 0 ? (
+          <div className="space-y-1">
+            {plannedPages.map((page) => {
+              const generated = generatedPageIds.has(page.id)
+              return (
+                <div
+                  key={page.id}
+                  className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/30"
+                >
+                  <Route className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{page.name}</span>
+                  <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {generated ? 'ready' : `${page.regions.length} regions`}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        ) : prototypePages.length > 0 ? (
+          <div className="space-y-1">
+            {prototypePages.map((artifact) => (
+              <div
+                key={artifact.page.id}
+                className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/30"
+              >
+                <Route className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate">{artifact.page.name}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {artifact.width}x{artifact.height}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <FileEmptyRow label="Pages appear after planning." />
+        )}
+      </FileSection>
+
+      <FileSection icon={Layers3} title="Design" count={designState === 'Waiting' ? 0 : 1}>
+        {prototypeDesignSystem ? (
+          <FileArtifactRow
+            icon={Layers3}
+            label="Design system"
+            detail={`${prototypeDesignSystem.width}x${prototypeDesignSystem.height}`}
+          />
+        ) : importedDesignMarkdown ? (
+          <FileArtifactRow
+            icon={FileText}
+            label={importedDesignMarkdown.name}
+            detail="Imported DESIGN.md"
+          />
+        ) : prototypePlan ? (
+          <FileArtifactRow
+            icon={FileText}
+            label="DESIGN.md draft"
+            detail="Generated from plan"
+          />
+        ) : (
+          <FileEmptyRow label="DESIGN.md appears after planning or import." />
+        )}
+      </FileSection>
+
+      <FileSection icon={ImageIcon} title="Assets" count={sliceCount}>
+        {hasSlices ? (
+          <FileArtifactRow
+            icon={ImageIcon}
+            label={`${sliceCount} cutout assets`}
+            detail="Ready in Output"
+          />
+        ) : (
+          <FileEmptyRow label="Cutout assets appear after generation." />
+        )}
+      </FileSection>
+
+      <FileSection icon={Paperclip} title="References" count={attachments.length}>
+        {attachments.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2">
+            {attachments.slice(0, 6).map((attachment) => (
+              <img
+                key={attachment.id}
+                src={attachment.url}
+                alt=""
+                title={attachment.name}
+                className="aspect-square w-full rounded-md border border-border object-cover"
+              />
+            ))}
+          </div>
+        ) : (
+          <FileEmptyRow label="Attach images or DESIGN.md from Agent." />
+        )}
+      </FileSection>
+    </section>
+  )
+}
+
+function FileMetric({
+  label,
+  value,
+}: {
+  readonly label: string
+  readonly value: string
+}) {
+  return (
+    <div className="min-w-0 rounded-md bg-background px-2 py-2">
+      <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-xs font-semibold">{value}</p>
+    </div>
+  )
+}
+
+function FileSection({
+  icon: Icon,
+  title,
+  count,
+  children,
+}: {
+  readonly icon: ComponentType<{ className?: string }>
+  readonly title: string
+  readonly count: number
+  readonly children: React.ReactNode
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-background p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <Icon className="size-3.5 text-muted-foreground" />
+        <p className="min-w-0 flex-1 text-xs font-semibold">{title}</p>
+        <span className="font-mono text-[10px] text-muted-foreground">{count}</span>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function FileArtifactRow({
+  icon: Icon,
+  label,
+  detail,
+}: {
+  readonly icon: ComponentType<{ className?: string }>
+  readonly label: string
+  readonly detail: string
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5">
+      <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium">{label}</p>
+        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{detail}</p>
+      </div>
+    </div>
+  )
+}
+
+function FileEmptyRow({ label }: { readonly label: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-border bg-muted/10 px-2 py-2 text-xs leading-5 text-muted-foreground">
+      {label}
+    </div>
+  )
+}
+
+function workflowPhaseLabel(phase: WorkflowPhase): string {
+  switch (phase) {
+    case 'idle':
+      return 'Draft'
+    case 'planning':
+      return 'Planning'
+    case 'review':
+      return 'Review'
+    case 'design-system':
+      return 'Design'
+    case 'generating-suite':
+      return 'Generating'
+  }
 }
 
 function DockScopePicker({
