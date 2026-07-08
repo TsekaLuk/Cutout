@@ -128,7 +128,7 @@ interface ReferenceAttachment extends PersistedReferenceAttachment {
 
 type HumanLoopAnswer = Extract<PrototypeHumanLoop, { mode: 'ask' }>['choices'][number]
 type ResolvedHumanLoopAnswer =
-  | { readonly kind: 'choice'; readonly choice: HumanLoopAnswer }
+  | { readonly kind: 'choice'; readonly choice: HumanLoopAnswer; readonly note: string | null }
   | { readonly kind: 'custom'; readonly text: string }
 
 const CUSTOM_HUMAN_LOOP_ID = '__custom__'
@@ -1052,8 +1052,18 @@ function WorkspaceSidebar({
   const showScope = prototypePlan?.humanLoop.mode === 'continue' && primaryCount < fullCount
   const hasDesignSystem = Boolean(importedDesignMarkdown || prototypeDesignSystem)
   const hasAssetOutput = hasSlices || prototypePages.length > 0
+  const humanLoopAsk = activeSection === 'agent' && humanLoop?.mode === 'ask'
   const selectedHumanLoopChoiceId =
-    humanLoop?.mode === 'ask' ? humanLoopChoiceId ?? humanLoop.defaultChoiceId : null
+    humanLoop?.mode === 'ask'
+      ? humanLoopChoiceId === CUSTOM_HUMAN_LOOP_ID
+        ? humanLoop.defaultChoiceId
+        : humanLoopChoiceId ?? humanLoop.defaultChoiceId
+      : null
+  const composerValue = humanLoopAsk ? humanLoopCustomAnswer : brief
+  const composerPlaceholder = humanLoopAsk
+    ? 'Optional: add nuance, constraints, or a different direction.'
+    : 'Describe the target product, audience, platform, and visual direction.'
+  const composerDisabled = working || (!humanLoopAsk && briefEmpty)
 
   return (
     <aside className="flex h-full min-h-0 w-[20rem] shrink-0 border-r border-border bg-background">
@@ -1136,8 +1146,6 @@ function WorkspaceSidebar({
               loop={humanLoop}
               selectedChoiceId={selectedHumanLoopChoiceId}
               onChoiceChange={onHumanLoopChoiceChange}
-              customAnswer={humanLoopCustomAnswer}
-              onCustomAnswerChange={onHumanLoopCustomAnswerChange}
               compact
             />
           ) : (
@@ -1247,10 +1255,16 @@ function WorkspaceSidebar({
               }}
             />
             <Textarea
-              value={brief}
-              rows={4}
-              onChange={(event) => onBriefChange(event.target.value)}
-              placeholder="Describe the target product, audience, platform, and visual direction."
+              value={composerValue}
+              rows={humanLoopAsk ? 3 : 4}
+              onChange={(event) => {
+                if (humanLoopAsk) {
+                  onHumanLoopCustomAnswerChange(event.target.value)
+                } else {
+                  onBriefChange(event.target.value)
+                }
+              }}
+              placeholder={composerPlaceholder}
               className="min-h-[5.5rem] resize-none border-0 bg-transparent px-3 pt-3 pb-0 text-sm leading-6 shadow-none focus-visible:ring-0"
             />
             <div className="flex items-center justify-between gap-2 px-2 pb-2">
@@ -1279,7 +1293,7 @@ function WorkspaceSidebar({
                 type="button"
                 size="icon-sm"
                 className="size-9 shrink-0 rounded-full"
-                disabled={briefEmpty || working}
+                disabled={composerDisabled}
                 onClick={onPrimaryAction}
                 aria-label={primaryButtonLabel({
                   working,
@@ -2282,44 +2296,25 @@ function HumanLoopQuestion({
   loop,
   selectedChoiceId,
   onChoiceChange,
-  customAnswer,
-  onCustomAnswerChange,
   compact = false,
 }: {
   readonly loop: Extract<PrototypeHumanLoop, { mode: 'ask' }>
   readonly selectedChoiceId: string | null
   readonly onChoiceChange: (id: string) => void
-  readonly customAnswer: string
-  readonly onCustomAnswerChange: (value: string) => void
   readonly compact?: boolean
 }) {
-  const customRef = useRef<HTMLTextAreaElement | null>(null)
-  const customSelected = selectedChoiceId === CUSTOM_HUMAN_LOOP_ID
-
-  function focusCustomAnswer(): void {
-    onChoiceChange(CUSTOM_HUMAN_LOOP_ID)
-    window.requestAnimationFrame(() => customRef.current?.focus())
-  }
-
   return (
     <section className={cn(
       'rounded-lg border border-primary/35 bg-background shadow-sm',
       compact ? 'p-3' : 'p-4',
     )}>
-      <div className={cn('flex items-start gap-3', compact ? 'flex-col' : 'justify-between')}>
+      <div>
         <h3 className={cn('min-w-0 font-semibold leading-6', compact ? 'text-sm' : 'text-base')}>
           {loop.question}
         </h3>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={cn('shrink-0', compact ? 'h-8 px-2 text-xs' : null)}
-          onClick={focusCustomAnswer}
-        >
-          <MessageCircle className="size-3.5" />
-          Chat about this
-        </Button>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Choose one direction. Add optional context below, then press the arrow.
+        </p>
       </div>
 
       <div className={cn('grid gap-2', compact ? 'mt-3' : 'mt-4 md:grid-cols-2')}>
@@ -2358,51 +2353,6 @@ function HumanLoopQuestion({
             </button>
           )
         })}
-      </div>
-
-      <div
-        role="group"
-        tabIndex={0}
-        onClick={focusCustomAnswer}
-        onKeyDown={(event) => {
-          if (event.target !== event.currentTarget) return
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            focusCustomAnswer()
-          }
-        }}
-        className={cn(
-          'mt-2 w-full rounded-md border text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40',
-          compact ? 'p-2.5' : 'p-3',
-          customSelected
-            ? 'border-primary bg-primary/10'
-            : 'border-border bg-muted/10 hover:bg-muted/40',
-        )}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className={cn('font-semibold', compact ? 'text-xs' : 'text-sm')}>
-            Custom option
-          </span>
-          <span
-            className={cn(
-              'size-2 rounded-full',
-              customSelected ? 'bg-primary' : 'bg-muted-foreground/30',
-            )}
-          />
-        </div>
-        <Textarea
-          ref={customRef}
-          value={customAnswer}
-          onFocus={() => onChoiceChange(CUSTOM_HUMAN_LOOP_ID)}
-          onClick={(event) => event.stopPropagation()}
-          onChange={(event) => {
-            onChoiceChange(CUSTOM_HUMAN_LOOP_ID)
-            onCustomAnswerChange(event.target.value)
-          }}
-          rows={compact ? 2 : 3}
-          placeholder="Tell the Agent the direction you want."
-          className={cn('mt-2 resize-none bg-background', compact ? 'text-xs leading-5' : 'text-sm')}
-        />
       </div>
     </section>
   )
@@ -3466,10 +3416,16 @@ function resolveHumanLoopAnswer(
   if (choiceId === CUSTOM_HUMAN_LOOP_ID && normalizedCustom.length > 0) {
     return { kind: 'custom', text: normalizedCustom }
   }
-  const id = choiceId ?? loop.defaultChoiceId
+  const id = choiceId === CUSTOM_HUMAN_LOOP_ID
+    ? loop.defaultChoiceId
+    : choiceId ?? loop.defaultChoiceId
   const answer = loop.choices.find((choice) => choice.id === id) ?? loop.choices[0]
   if (!answer) throw new Error('Human-in-the-loop question has no choices.')
-  return { kind: 'choice', choice: answer }
+  return {
+    kind: 'choice',
+    choice: answer,
+    note: normalizedCustom.length > 0 ? normalizedCustom : null,
+  }
 }
 
 function composeHumanLoopRequirement(
@@ -3487,6 +3443,7 @@ function composeHumanLoopRequirement(
           `Selected choice: ${answer.choice.label}`,
           `Choice description: ${answer.choice.description}`,
           `Expected planning impact: ${answer.choice.impact}`,
+          ...(answer.note ? [`Additional guidance: ${answer.note}`] : []),
         ]
 
   return [
