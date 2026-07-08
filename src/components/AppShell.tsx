@@ -203,12 +203,61 @@ export function AppShell() {
   const activeRecordRef = useRef<LocalProjectRecord | null>(null)
   const restoringRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSavedFingerprintRef = useRef('')
+  const saveActiveProjectNowRef = useRef<(projectId?: string | null) => Promise<boolean>>(
+    async () => false,
+  )
 
   const projectName = useMemo(() => projectNameFromBrief(brief), [brief])
 
   useEffect(() => {
     projectsRef.current = projects
   }, [projects])
+
+  const saveActiveProjectNow = useCallback(
+    async (projectId = activeProjectId): Promise<boolean> => {
+      if (!projectId || restoringRef.current) return false
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+
+      const state = getStoreState()
+      if (!shouldPersistWorkspace(state)) return false
+
+      const fingerprint = `${projectId}:${workspaceAutosaveFingerprint(state)}`
+      if (fingerprint === lastSavedFingerprintRef.current) return true
+
+      const current = projectsRef.current.find((project) => project.id === projectId)
+      const previous =
+        activeRecordRef.current?.id === projectId
+          ? activeRecordRef.current
+          : undefined
+      const createdAt = previous?.createdAt ?? current?.createdAt ?? Date.now()
+
+      const record = await createProjectRecordFromStore({
+        id: projectId,
+        createdAt,
+        state,
+        previous,
+      })
+      const saved = await projectRepository.save(record)
+      if (isErr(saved)) {
+        console.warn('[Cutout] project autosave failed:', saved.error)
+        return false
+      }
+
+      activeRecordRef.current = record
+      lastSavedFingerprintRef.current = fingerprint
+      dispatchProjectShell({ type: 'autosaved', project: record })
+      return true
+    },
+    [activeProjectId, projectRepository],
+  )
+
+  useEffect(() => {
+    saveActiveProjectNowRef.current = saveActiveProjectNow
+  }, [saveActiveProjectNow])
 
   const loadProjects = useCallback(
     async (isCanceled: () => boolean = () => false) => {
@@ -263,11 +312,18 @@ export function AppShell() {
   const libraryUI = useMemo(() => ({ open: openLibrary }), [openLibrary])
 
   const openHome = useCallback(
-    () => dispatchProjectShell({ type: 'open-home' }),
-    [],
+    () => {
+      void saveActiveProjectNow()
+      dispatchProjectShell({ type: 'open-home' })
+    },
+    [saveActiveProjectNow],
   )
   const openProjectById = useCallback(
     async (id: string) => {
+      if (activeProjectId && activeProjectId !== id) {
+        await saveActiveProjectNow(activeProjectId)
+      }
+
       const loaded = await projectRepository.load(id)
       if (isErr(loaded)) {
         if (activeRecordRef.current?.id === id) {
@@ -302,6 +358,7 @@ export function AppShell() {
       restoringRef.current = true
       try {
         activeRecordRef.current = loaded.data
+        lastSavedFingerprintRef.current = ''
         const restoreInput = await createRestoreInputFromProject(loaded.data)
         restoreProject(restoreInput)
         dispatchProjectShell({ type: 'open-project', id })
@@ -315,7 +372,13 @@ export function AppShell() {
         })
       }
     },
-    [activeProjectId, projectRepository, resetProject, restoreProject],
+    [
+      activeProjectId,
+      projectRepository,
+      resetProject,
+      restoreProject,
+      saveActiveProjectNow,
+    ],
   )
   const openProject = useCallback(() => {
     const id = activeProjectId ?? projects[0]?.id
@@ -327,19 +390,22 @@ export function AppShell() {
     void openProjectById(id)
   }, [activeProjectId, openProjectById, projectTabOpen, projects])
   const closeProject = useCallback(() => {
+    void saveActiveProjectNow()
     dispatchProjectShell({ type: 'close-project' })
-  }, [])
+  }, [saveActiveProjectNow])
   const newProject = useCallback(async () => {
+    await saveActiveProjectNow()
     const project = createEmptyProjectRecord()
 
     restoringRef.current = true
     activeRecordRef.current = project
+    lastSavedFingerprintRef.current = ''
     resetProject()
     dispatchProjectShell({ type: 'create-project', project })
     queueMicrotask(() => {
       restoringRef.current = false
     })
-  }, [resetProject])
+  }, [resetProject, saveActiveProjectNow])
   const requestNewProject = useCallback(() => {
     void newProject()
   }, [newProject])
@@ -421,36 +487,43 @@ export function AppShell() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
 
     saveTimerRef.current = setTimeout(() => {
-      const state = getStoreState()
-      if (!shouldPersistWorkspace(state)) return
-      const current = projectsRef.current.find(
-        (project) => project.id === activeProjectId,
-      )
-      const previous =
-        activeRecordRef.current?.id === activeProjectId
-          ? activeRecordRef.current
-          : undefined
-      const createdAt = current?.createdAt ?? Date.now()
-      void createProjectRecordFromStore({
-        id: activeProjectId,
-        createdAt,
-        state,
-        previous,
-      }).then(async (record) => {
-        const saved = await projectRepository.save(record)
-        if (isErr(saved)) {
-          console.warn('[Cutout] project autosave failed:', saved.error)
-          return
-        }
-        activeRecordRef.current = record
-        dispatchProjectShell({ type: 'autosaved', project: record })
-      })
+      void saveActiveProjectNowRef.current(activeProjectId)
     }, 250)
 
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
     }
-  }, [activeProjectId, projectRepository, workspaceFingerprint])
+  }, [activeProjectId, workspaceFingerprint])
+
+  useEffect(
+    () => () => {
+      void saveActiveProjectNowRef.current()
+    },
+    [],
+  )
+
+  useEffect(() => {
+    const flush = () => {
+      void saveActiveProjectNowRef.current()
+    }
+    const flushWhenHidden = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+
+    window.addEventListener('blur', flush)
+    window.addEventListener('pagehide', flush)
+    window.addEventListener('beforeunload', flush)
+    document.addEventListener('visibilitychange', flushWhenHidden)
+    return () => {
+      window.removeEventListener('blur', flush)
+      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('beforeunload', flush)
+      document.removeEventListener('visibilitychange', flushWhenHidden)
+    }
+  }, [])
 
   const rerun = useCallback(() => {
     // Re-analyze current params (with slices) using the shell's own bridge.

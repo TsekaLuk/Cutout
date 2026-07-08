@@ -329,7 +329,15 @@ function projectStatusFromStore(
   state: Store,
   workspace: WorkspaceSnapshot | null,
 ): LocalProjectStatus {
-  if (state.genPhase !== 'idle' || state.analysis.status === 'running') {
+  if (
+    state.genPhase !== 'idle' ||
+    state.analysis.status === 'running' ||
+    workspace?.workflowPhase === 'planning' ||
+    workspace?.workflowPhase === 'design-system' ||
+    workspace?.workflowPhase === 'generating-suite' ||
+    workspace?.namingStatus === 'pending' ||
+    workspace?.namingStatus === 'running'
+  ) {
     return 'Running'
   }
   if (state.analysis.slices.length > 0 || (workspace?.prototypePages.length ?? 0) > 0) {

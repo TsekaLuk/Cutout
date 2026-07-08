@@ -30,8 +30,12 @@ export function ImageZoom({ src, label, className }: ImageZoomProps) {
       <button
         type="button"
         aria-label={label}
-        onClick={() => setOpen(true)}
-        className="flex size-full cursor-zoom-in items-center justify-center rounded outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen(true)
+        }}
+        className="nodrag nopan nowheel flex size-full cursor-zoom-in items-center justify-center rounded outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       >
         <img
           src={src}

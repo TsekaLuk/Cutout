@@ -92,7 +92,7 @@ function CardNode({ data }: NodeProps) {
   const url = useItemUrl(item)
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-colors hover:border-ring/50"
+      className="nodrag nopan nowheel flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-colors hover:border-ring/50"
       style={{ width: CARD_W }}
     >
       <div className="flex h-32 items-center justify-center overflow-hidden bg-muted/20">

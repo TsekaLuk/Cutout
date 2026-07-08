@@ -222,4 +222,47 @@ describe('project-repository.local', () => {
 
     getStoreState().resetProject()
   })
+
+  it('marks persisted workspace work as running while a resumable step is active', async () => {
+    const state = getStoreState()
+    state.resetProject()
+    state.setBrief('brand site')
+    state.setWorkspaceSnapshot({
+      ...planningSnapshot(),
+      workflowPhase: 'design-system',
+    })
+
+    const record = await createProjectRecordFromStore({
+      id: crypto.randomUUID(),
+      createdAt: 600,
+      state: getStoreState(),
+      now: 700,
+    })
+
+    expect(record.status).toBe('Running')
+
+    getStoreState().resetProject()
+  })
+
+  it('marks pending semantic naming as running in project summaries', async () => {
+    const state = getStoreState()
+    state.resetProject()
+    state.setBrief('brand site')
+    state.setWorkspaceSnapshot({
+      ...planningSnapshot(),
+      workflowPhase: 'idle',
+      namingStatus: 'pending',
+    })
+
+    const record = await createProjectRecordFromStore({
+      id: crypto.randomUUID(),
+      createdAt: 800,
+      state: getStoreState(),
+      now: 900,
+    })
+
+    expect(record.status).toBe('Running')
+
+    getStoreState().resetProject()
+  })
 })

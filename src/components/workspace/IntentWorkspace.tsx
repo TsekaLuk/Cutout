@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentType } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import {
   Archive,
   ArrowUp,
@@ -302,7 +302,7 @@ export function IntentWorkspace({
     hasPrototypePages: prototypePages.length > 0,
   })
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setWorkspaceSnapshot({
       version: 'workspace.v1',
       workflowPhase,
@@ -498,7 +498,16 @@ export function IntentWorkspace({
 
       autoNamePendingRef.current = true
       setNamingStatus('pending')
-      await generatePrototypeSuite(generationBrief, plan)
+      await generatePrototypeSuite(generationBrief, plan, {
+        startFresh:
+          hasSlices &&
+          isPrototypeSuiteComplete(
+            plan,
+            prototypeScope,
+            prototypePages,
+            prototypeDesignSystem,
+          ),
+      })
     } catch (error) {
       autoNamePendingRef.current = false
       const message = errorMessage(error)
@@ -588,12 +597,21 @@ export function IntentWorkspace({
   async function generatePrototypeSuite(
     text: string,
     plan: PrototypePlan,
+    options: { readonly startFresh?: boolean } = {},
   ): Promise<void> {
     const image = assignments.data?.image
     if (!image) throw new Error('No image-generation model is configured.')
 
     const pages = pagesForScope(plan, prototypeScope)
     if (pages.length === 0) throw new Error('The prototype plan has no pages.')
+    const pageIds = new Set(pages.map((page) => page.id))
+    const reusablePages = options.startFresh
+      ? []
+      : sortPrototypePages(
+          prototypePages.filter((artifact) => pageIds.has(artifact.page.id)),
+          pages,
+        )
+    const reusableDesignSystem = options.startFresh ? null : prototypeDesignSystem
     const assetManifest = createPrototypeAssetManifest(plan, pages)
     recordAiNativeDiagnostic({
       level: 'info',
@@ -616,9 +634,18 @@ export function IntentWorkspace({
       },
     })
 
-    setPrototypePages([])
-    setPrototypeDesignSystem(null)
-    setSelectedPrototypePageId(null)
+    if (options.startFresh) {
+      setPrototypePages([])
+      setPrototypeDesignSystem(null)
+      setSelectedPrototypePageId(null)
+    } else if (reusablePages.length > 0) {
+      setPrototypePages(reusablePages)
+      setSelectedPrototypePageId((selected) =>
+        selected && pageIds.has(selected)
+          ? selected
+          : reusablePages[0]?.page.id ?? null,
+      )
+    }
     setWorkflowPhase('design-system')
 
     const deconstructPreflight = prepareDeconstruct(
@@ -628,19 +655,21 @@ export function IntentWorkspace({
     const chat = assignments.data?.chat
     if (!chat) throw new Error('No chat/vision model is configured.')
 
-    const designSystem = await generatePrototypeDesignSystem(
-      plan,
-      image,
-      chat,
-      importedDesignMarkdown?.content,
-    )
-    setPrototypeDesignSystem(designSystem)
+    const designSystem =
+      reusableDesignSystem ??
+      await generatePrototypeDesignSystem(
+        plan,
+        image,
+        chat,
+        importedDesignMarkdown?.content,
+      )
+    if (!reusableDesignSystem) setPrototypeDesignSystem(designSystem)
     setWorkflowPhase('generating-suite')
 
     const generated =
       pages.length <= SERIAL_REFERENCE_PAGE_LIMIT
-        ? await generatePagesSerial(plan, pages, image, designSystem)
-        : await generatePagesParallel(plan, pages, image, designSystem)
+        ? await generatePagesSerial(plan, pages, image, designSystem, reusablePages)
+        : await generatePagesParallel(plan, pages, image, designSystem, reusablePages)
     const first = generated[0]
     if (!first) throw new Error('The model returned no prototype pages.')
 
@@ -753,10 +782,17 @@ export function IntentWorkspace({
     pages: readonly PrototypePage[],
     image: ModelAssignment,
     designSystem: PrototypeDesignSystemArtifact,
+    existingPages: readonly PrototypePageArtifact[] = [],
   ): Promise<PrototypePageArtifact[]> {
-    const generated: PrototypePageArtifact[] = []
+    const generated: PrototypePageArtifact[] = [...existingPages]
+    const generatedById = new Map(generated.map((artifact) => [artifact.page.id, artifact]))
     let previous: PrototypePageArtifact | null = null
     for (const page of pages) {
+      const existing = generatedById.get(page.id)
+      if (existing) {
+        previous = existing
+        continue
+      }
       const references = previous
         ? [designSystem.bytes, previous.bytes]
         : [designSystem.bytes]
@@ -768,10 +804,11 @@ export function IntentWorkspace({
         importedDesignMarkdown?.content,
       )
       generated.push(artifact)
+      generatedById.set(page.id, artifact)
       previous = artifact
       setPrototypePages(sortPrototypePages(generated, pages))
     }
-    return generated
+    return sortPrototypePages(generated, pages)
   }
 
   async function generatePagesParallel(
@@ -779,14 +816,18 @@ export function IntentWorkspace({
     pages: readonly PrototypePage[],
     image: ModelAssignment,
     designSystem: PrototypeDesignSystemArtifact,
+    existingPages: readonly PrototypePageArtifact[] = [],
   ): Promise<PrototypePageArtifact[]> {
-    const results = new Map<string, PrototypePageArtifact>()
+    const results = new Map<string, PrototypePageArtifact>(
+      existingPages.map((artifact) => [artifact.page.id, artifact]),
+    )
+    const missingPages = pages.filter((page) => !results.has(page.id))
     let nextIndex = 0
-    const limit = Math.min(2, pages.length)
+    const limit = Math.min(2, missingPages.length)
 
     async function worker(): Promise<void> {
-      while (nextIndex < pages.length) {
-        const page = pages[nextIndex]
+      while (nextIndex < missingPages.length) {
+        const page = missingPages[nextIndex]
         nextIndex += 1
         if (!page) continue
         const artifact = await generatePrototypePage(
@@ -797,13 +838,13 @@ export function IntentWorkspace({
           importedDesignMarkdown?.content,
         )
         results.set(page.id, artifact)
-        setPrototypePages((current) =>
-          sortPrototypePages([...current, artifact], pages),
-        )
+        setPrototypePages(sortPrototypePages([...results.values()], pages))
       }
     }
 
-    await Promise.all(Array.from({ length: limit }, () => worker()))
+    if (missingPages.length > 0) {
+      await Promise.all(Array.from({ length: limit }, () => worker()))
+    }
     return pages
       .map((page) => results.get(page.id))
       .filter((item): item is PrototypePageArtifact => Boolean(item))
@@ -1064,6 +1105,14 @@ function WorkspaceSidebar({
     ? 'Optional: add nuance, constraints, or a different direction.'
     : 'Describe the target product, audience, platform, and visual direction.'
   const composerDisabled = working || (!humanLoopAsk && briefEmpty)
+  const prototypeComplete = prototypePlan
+    ? isPrototypeSuiteComplete(
+        prototypePlan,
+        prototypeScope,
+        prototypePages,
+        prototypeDesignSystem,
+      )
+    : false
 
   return (
     <aside className="flex h-full min-h-0 w-[20rem] shrink-0 border-r border-border bg-background">
@@ -1300,6 +1349,9 @@ function WorkspaceSidebar({
                   workflowPhase,
                   hasPlan,
                   hasPrototypePages,
+                  hasPrototypeArtifacts: Boolean(prototypeDesignSystem) || prototypePages.length > 0,
+                  prototypeComplete,
+                  hasSlices,
                   humanLoop,
                 })}
                 title={primaryButtonLabel({
@@ -1307,6 +1359,9 @@ function WorkspaceSidebar({
                   workflowPhase,
                   hasPlan,
                   hasPrototypePages,
+                  hasPrototypeArtifacts: Boolean(prototypeDesignSystem) || prototypePages.length > 0,
+                  prototypeComplete,
+                  hasSlices,
                   humanLoop,
                 })}
               >
@@ -3245,12 +3300,18 @@ function primaryButtonLabel({
   workflowPhase,
   hasPlan,
   hasPrototypePages,
+  hasPrototypeArtifacts,
+  prototypeComplete,
+  hasSlices,
   humanLoop,
 }: {
   readonly working: boolean
   readonly workflowPhase: WorkflowPhase
   readonly hasPlan: boolean
   readonly hasPrototypePages: boolean
+  readonly hasPrototypeArtifacts: boolean
+  readonly prototypeComplete: boolean
+  readonly hasSlices: boolean
   readonly humanLoop: PrototypeHumanLoop | null
 }): string {
   if (working) {
@@ -3261,6 +3322,7 @@ function primaryButtonLabel({
   }
   if (!hasPlan) return 'Create assets'
   if (humanLoop?.mode === 'ask') return 'Continue planning'
+  if (hasPrototypeArtifacts && (!prototypeComplete || !hasSlices)) return 'Continue assets'
   if (!hasPrototypePages) return 'Create assets'
   return 'Recreate assets'
 }
@@ -3270,9 +3332,20 @@ function sortPrototypePages(
   order: readonly PrototypePage[],
 ): PrototypePageArtifact[] {
   const index = new Map(order.map((page, i) => [page.id, i]))
-  return [...pages].sort((a, b) => {
+  return pages.toSorted((a, b) => {
     return (index.get(a.page.id) ?? 999) - (index.get(b.page.id) ?? 999)
   })
+}
+
+function isPrototypeSuiteComplete(
+  plan: PrototypePlan,
+  scope: PrototypeSuiteScope,
+  pages: readonly PrototypePageArtifact[],
+  designSystem: PrototypeDesignSystemArtifact | null,
+): boolean {
+  if (!designSystem) return false
+  const generatedIds = new Set(pages.map((artifact) => artifact.page.id))
+  return pagesForScope(plan, scope).every((page) => generatedIds.has(page.id))
 }
 
 function errorMessage(error: unknown): string {
