@@ -85,7 +85,7 @@ export function workspaceSnapshotFingerprint(
         snapshot.prototypeDesignSystem.width,
         snapshot.prototypeDesignSystem.height,
         snapshot.prototypeDesignSystem.bytes.byteLength,
-        snapshot.prototypeDesignSystem.designMarkdown.length,
+        textFingerprint(snapshot.prototypeDesignSystem.designMarkdown),
       ].join(':')
     : ''
   const pages = snapshot.prototypePages
@@ -124,4 +124,13 @@ export function workspaceSnapshotFingerprint(
     attachments,
     snapshot.webSearchEnabled ? 'web' : '',
   ].join('|')
+}
+
+export function textFingerprint(text: string): string {
+  let hash = 2166136261
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `${text.length}:${(hash >>> 0).toString(36)}`
 }

@@ -46,7 +46,11 @@ import {
   type LocalProjectSummary,
 } from '@/services/local/project-repository.local'
 import { isErr } from '@/services/types'
-import { isWorkspaceSnapshotEmpty, workspaceSnapshotFingerprint } from '@/workspace/workspace-snapshot'
+import {
+  isWorkspaceSnapshotEmpty,
+  textFingerprint,
+  workspaceSnapshotFingerprint,
+} from '@/workspace/workspace-snapshot'
 import { cn } from '@/lib/utils'
 
 type AppView = 'home' | 'project'
@@ -671,7 +675,7 @@ function workspaceAutosaveFingerprint(state: ReturnType<typeof getStoreState>): 
     ? `${state.mockup.width}x${state.mockup.height}:${state.mockup.blob.size}`
     : ''
   const design = state.designMarkdown
-    ? `${state.designMarkdown.name}:${state.designMarkdown.importedAt}:${state.designMarkdown.content.length}`
+    ? `${state.designMarkdown.name}:${state.designMarkdown.importedAt}:${textFingerprint(state.designMarkdown.content)}`
     : ''
   const params = [
     state.params.threshold,

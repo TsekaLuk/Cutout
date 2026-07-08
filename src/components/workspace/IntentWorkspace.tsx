@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react'
 import {
   Archive,
   ArrowUp,
@@ -14,10 +21,12 @@ import {
   MousePointerClick,
   PackageOpen,
   Paperclip,
+  Plus,
   Route,
   Scissors,
   Settings2,
   Tag,
+  Trash2,
   WandSparkles,
   X,
 } from 'lucide-react'
@@ -55,6 +64,15 @@ import {
   isGenericSliceFilename,
 } from '@/prototype/asset-names'
 import { createPrototypeAssetManifest } from '@/prototype/asset-manifest'
+import {
+  appendDesignMarkdownSection,
+  parseEditableDesignMarkdown,
+  removeDesignMarkdownSection,
+  updateDesignMarkdownControl,
+  updateDesignMarkdownSection,
+  type EditableDesignControl,
+  type EditableDesignSection,
+} from '@/prototype/design-md'
 import type {
   PersistedPrototypeDesignSystem,
   PersistedPrototypeImage,
@@ -66,6 +84,8 @@ import type {
 } from '@/workspace/workspace-snapshot'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
 import { SourceCanvas } from '@/components/source/SourceCanvas'
 import { SliceGrid } from '@/components/slices/SliceGrid'
@@ -241,6 +261,7 @@ export function IntentWorkspace({
   const setMockup = useStore((s) => s.setMockup)
   const mockup = useStore((s) => s.mockup)
   const importedDesignMarkdown = useStore((s) => s.designMarkdown)
+  const setDesignMarkdown = useStore((s) => s.setDesignMarkdown)
   const clearDesignMarkdown = useStore((s) => s.clearDesignMarkdown)
   const genPhase = useStore((s) => s.genPhase)
   const genError = useStore((s) => s.genError)
@@ -399,6 +420,22 @@ export function IntentWorkspace({
     setRunError(null)
     setNamingStatus('idle')
     setWorkflowPhase('idle')
+  }
+
+  function updateDesignMarkdownContent(content: string): void {
+    const normalized = content.replace(/\r\n?/g, '\n')
+    if (prototypeDesignSystem) {
+      setPrototypeDesignSystem((current) =>
+        current ? { ...current, designMarkdown: normalized } : current,
+      )
+      return
+    }
+
+    setDesignMarkdown({
+      name: importedDesignMarkdown?.name ?? 'DESIGN.md',
+      content: normalized,
+      importedAt: importedDesignMarkdown?.importedAt ?? Date.now(),
+    })
   }
 
   async function providerKeyPreflightMessage(
@@ -999,6 +1036,7 @@ export function IntentWorkspace({
         prototypePlan={prototypePlan}
         prototypeDesignSystem={prototypeDesignSystem}
         importedDesignMarkdown={importedDesignMarkdown}
+        onChange={updateDesignMarkdownContent}
       />
     </div>
   )
@@ -1735,11 +1773,14 @@ function DesignMarkdownInspector({
   prototypePlan,
   prototypeDesignSystem,
   importedDesignMarkdown,
+  onChange,
 }: {
   readonly prototypePlan: PrototypePlan | null
   readonly prototypeDesignSystem: PrototypeDesignSystemArtifact | null
   readonly importedDesignMarkdown: DesignMarkdownAsset
+  readonly onChange: (content: string) => void
 }) {
+  const [mode, setMode] = useState<'controls' | 'source'>('controls')
   const generated = prototypeDesignSystem?.designMarkdown.trim()
   const imported = importedDesignMarkdown?.content.trim()
   const draft =
@@ -1751,6 +1792,7 @@ function DesignMarkdownInspector({
   const name = generated
     ? 'Generated DESIGN.md'
     : importedDesignMarkdown?.name ?? 'DESIGN.md'
+  const model = content ? parseEditableDesignMarkdown(content) : null
 
   async function copyDesignMarkdown(): Promise<void> {
     if (!content) return
@@ -1804,13 +1846,49 @@ function DesignMarkdownInspector({
             <Tag className="size-3.5" />
             Copy DESIGN.md
           </Button>
+          <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => setMode('controls')}
+              className={cn(
+                'h-7 rounded-md text-xs font-medium transition-colors',
+                mode === 'controls'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Controls
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('source')}
+              className={cn(
+                'h-7 rounded-md text-xs font-medium transition-colors',
+                mode === 'source'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Source
+            </button>
+          </div>
         </section>
 
-        {content ? (
+        {content && model ? (
           <section className="p-4">
-            <pre className="whitespace-pre-wrap break-words rounded-md border border-border bg-muted/15 p-3 font-mono text-[11px] leading-5 text-muted-foreground">
-              {content}
-            </pre>
+            {mode === 'controls' ? (
+              <DesignMarkdownControls
+                content={content}
+                model={model}
+                onChange={onChange}
+              />
+            ) : (
+              <Textarea
+                value={content}
+                onChange={(event) => onChange(event.target.value)}
+                className="min-h-[calc(100vh-14rem)] resize-none font-mono text-[11px] leading-5"
+              />
+            )}
           </section>
         ) : (
           <section className="p-4">
@@ -1824,6 +1902,259 @@ function DesignMarkdownInspector({
       </div>
     </aside>
   )
+}
+
+function DesignMarkdownControls({
+  content,
+  model,
+  onChange,
+}: {
+  readonly content: string
+  readonly model: ReturnType<typeof parseEditableDesignMarkdown>
+  readonly onChange: (content: string) => void
+}) {
+  const frontmatterControls = model.controls.filter(
+    (control) => control.source.type === 'frontmatter' && control.kind === 'text',
+  )
+  const tokenControls = model.controls.filter(
+    (control) => control.kind !== 'text',
+  )
+  const bodyControls = model.controls.filter(
+    (control) => control.source.type !== 'frontmatter' && control.kind === 'text',
+  )
+
+  return (
+    <div className="space-y-4">
+      {model.frontmatterError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs leading-5 text-destructive">
+          {model.frontmatterError}
+        </div>
+      ) : null}
+
+      <DesignControlGroup title="Contract" count={frontmatterControls.length}>
+        {frontmatterControls.map((control) => (
+          <DesignControlRow
+            key={control.id}
+            control={control}
+            content={content}
+            onChange={onChange}
+          />
+        ))}
+      </DesignControlGroup>
+
+      <DesignControlGroup title="Tokens" count={tokenControls.length}>
+        {tokenControls.map((control) => (
+          <DesignControlRow
+            key={control.id}
+            control={control}
+            content={content}
+            onChange={onChange}
+          />
+        ))}
+      </DesignControlGroup>
+
+      <DesignControlGroup title="Rules" count={bodyControls.length}>
+        {bodyControls.map((control) => (
+          <DesignControlRow
+            key={control.id}
+            control={control}
+            content={content}
+            onChange={onChange}
+          />
+        ))}
+      </DesignControlGroup>
+
+      <section className="rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold">Sections</p>
+            <p className="font-mono text-[10px] text-muted-foreground">
+              {model.sections.length}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onChange(appendDesignMarkdownSection(content))}
+          >
+            <Plus className="size-3.5" />
+            Add
+          </Button>
+        </div>
+        <div className="divide-y divide-border">
+          {model.sections.length > 0 ? (
+            model.sections.map((section) => (
+              <DesignSectionEditor
+                key={section.id}
+                content={content}
+                section={section}
+                onChange={onChange}
+              />
+            ))
+          ) : (
+            <p className="p-3 text-xs text-muted-foreground">No markdown sections.</p>
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function DesignControlGroup({
+  title,
+  count,
+  children,
+}: {
+  readonly title: string
+  readonly count: number
+  readonly children: ReactNode
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <p className="text-xs font-semibold">{title}</p>
+        <span className="font-mono text-[10px] text-muted-foreground">{count}</span>
+      </div>
+      <div className="space-y-3 p-3">
+        {count > 0 ? children : (
+          <p className="text-xs text-muted-foreground">No editable fields.</p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function DesignControlRow({
+  control,
+  content,
+  onChange,
+}: {
+  readonly control: EditableDesignControl
+  readonly content: string
+  readonly onChange: (content: string) => void
+}) {
+  const color = control.kind === 'color' ? extractEditableColor(control.value) : null
+  const numberValue =
+    control.kind === 'number' ? Number.parseFloat(control.value) : Number.NaN
+
+  function update(nextValue: string): void {
+    onChange(updateDesignMarkdownControl(content, control, nextValue))
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <label className="min-w-0 truncate text-xs font-medium text-muted-foreground">
+          {control.label}
+        </label>
+        {control.unit ? (
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            {control.unit}
+          </span>
+        ) : null}
+      </div>
+
+      {control.kind === 'color' && color ? (
+        <div className="grid grid-cols-[2rem_1fr] gap-2">
+          <input
+            type="color"
+            value={color}
+            aria-label={control.label}
+            onChange={(event) => update(replaceFirstColor(control.value, event.target.value))}
+            className="h-8 w-8 rounded-md border border-border bg-transparent p-0.5"
+          />
+          <Input
+            value={control.value}
+            onChange={(event) => update(event.target.value)}
+            className="font-mono text-xs"
+          />
+        </div>
+      ) : control.kind === 'number' && Number.isFinite(numberValue) ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_4.5rem] items-center gap-3">
+            <Slider
+              value={[numberValue]}
+              min={control.min}
+              max={control.max}
+              step={control.unit === null ? 0.1 : 1}
+              onValueChange={(value) => {
+                const next = value[0]
+                if (typeof next === 'number') {
+                  update(`${Number(next.toFixed(2))}${control.unit ?? ''}`)
+                }
+              }}
+            />
+            <Input
+              value={control.value}
+              onChange={(event) => update(event.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+        </div>
+      ) : (
+        <Input
+          value={control.value}
+          onChange={(event) => update(event.target.value)}
+          className="text-xs"
+        />
+      )}
+    </div>
+  )
+}
+
+function DesignSectionEditor({
+  content,
+  section,
+  onChange,
+}: {
+  readonly content: string
+  readonly section: EditableDesignSection
+  readonly onChange: (content: string) => void
+}) {
+  return (
+    <div className="p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold">{section.title}</p>
+          <p className="font-mono text-[10px] text-muted-foreground">
+            {'#'.repeat(section.level)}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Delete ${section.title}`}
+          onClick={() => onChange(removeDesignMarkdownSection(content, section))}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </div>
+      <Textarea
+        value={section.body}
+        rows={Math.min(7, Math.max(3, section.body.split('\n').length + 1))}
+        onChange={(event) =>
+          onChange(updateDesignMarkdownSection(content, section, event.target.value))
+        }
+        className="resize-y text-xs leading-5"
+      />
+    </div>
+  )
+}
+
+function extractEditableColor(value: string): string | null {
+  const match = /#[0-9a-f]{3}(?:[0-9a-f]{3})?/i.exec(value)
+  if (!match) return null
+  const hex = match[0]
+  if (hex.length === 4) {
+    return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`.toLowerCase()
+  }
+  return hex.slice(0, 7).toLowerCase()
+}
+
+function replaceFirstColor(value: string, color: string): string {
+  return value.replace(/#[0-9a-f]{3}(?:[0-9a-f]{3})?(?:[0-9a-f]{2})?/i, color)
 }
 
 function OutputHeader({
