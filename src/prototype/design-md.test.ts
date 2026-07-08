@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  editableDesignValueLiteral,
+  formatEditedDesignValue,
   isDesignMarkdownFileName,
   normalizedDesignMarkdown,
+  parseEditableDesignValue,
   parseEditableDesignMarkdown,
   parseDesignMarkdown,
   appendDesignMarkdownSection,
@@ -130,6 +133,15 @@ describe('DESIGN.md helpers', () => {
     ].join('\n'))
 
     expect(parsed.tables[0]?.rows[0]).toEqual(['copy', 'A \\| B'])
+  })
+
+  it('infers editable inline-code values without dropping markdown markers', () => {
+    expect(editableDesignValueLiteral('`8px`')).toBe('8px')
+    expect(parseEditableDesignValue('`8px`')).toMatchObject({
+      kind: 'number',
+      unit: 'px',
+    })
+    expect(formatEditedDesignValue('`8px`', '16px')).toBe('`16px`')
   })
 
   it('updates table cells and rows', () => {

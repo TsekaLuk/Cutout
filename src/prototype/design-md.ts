@@ -7,6 +7,13 @@ export interface ParsedDesignMarkdown {
 
 export type EditableDesignControlKind = 'color' | 'number' | 'text'
 
+export interface EditableDesignValueMeta {
+  readonly kind: EditableDesignControlKind
+  readonly unit: string | null
+  readonly min: number
+  readonly max: number
+}
+
 export interface EditableDesignControl {
   readonly id: string
   readonly label: string
@@ -45,6 +52,22 @@ export interface EditableDesignMarkdown {
   readonly sections: readonly EditableDesignSection[]
   readonly tables: readonly EditableDesignTable[]
   readonly controls: readonly EditableDesignControl[]
+}
+
+export function parseEditableDesignValue(value: string): EditableDesignValueMeta {
+  return controlValueMeta(value)
+}
+
+export function editableDesignValueLiteral(value: string): string {
+  return unwrapInlineCode(value.trim()).inner
+}
+
+export function formatEditedDesignValue(previousValue: string, nextValue: string): string {
+  const previous = previousValue.trim()
+  const wrapped = unwrapInlineCode(previous)
+  if (!wrapped.marker) return nextValue
+  const next = unwrapInlineCode(nextValue.trim()).inner
+  return `${wrapped.marker}${next}${wrapped.marker}`
 }
 
 export function isDesignMarkdownFileName(name: string): boolean {
@@ -379,21 +402,23 @@ function isDesignControlValue(value: string): boolean {
   )
 }
 
-function controlValueMeta(value: string): Omit<EditableDesignControl, 'id' | 'label' | 'value' | 'source'> {
-  const color = /#[0-9a-f]{3}(?:[0-9a-f]{3})?(?:[0-9a-f]{2})?/i.exec(value)
+function controlValueMeta(value: string): EditableDesignValueMeta {
+  const literal = editableDesignValueLiteral(value)
+  const color = /#[0-9a-f]{3}(?:[0-9a-f]{3})?(?:[0-9a-f]{2})?/i.exec(literal)
   if (color) {
     return { kind: 'color', unit: null, min: 0, max: 100 }
   }
 
-  const numeric = /^-?\d+(?:\.\d+)?\s*(px|%|rem|em|vh|vw|s|ms)?$/i.exec(value.trim())
+  const numeric = /^-?\d+(?:\.\d+)?\s*(px|%|rem|em|vh|vw|s|ms)?$/i.exec(literal.trim())
   if (numeric) {
-    const amount = Number.parseFloat(value)
+    const amount = Number.parseFloat(literal)
     const unit = numeric[1] ?? null
+    const max = unit === '%' ? 100 : Math.max(100, Math.ceil(Math.abs(amount) * 2 || 100))
     return {
       kind: 'number',
       unit,
-      min: unit === '%' ? 0 : 0,
-      max: unit === '%' ? 100 : Math.max(100, Math.ceil(amount * 2 || 100)),
+      min: unit === '%' || amount >= 0 ? 0 : Math.floor(amount * 2),
+      max,
     }
   }
 
@@ -463,6 +488,12 @@ function splitTableRow(line: string): string[] {
 
 function formatTableRow(cells: readonly string[]): string {
   return `| ${cells.map((cell) => cell.trim()).join(' | ')} |`
+}
+
+function unwrapInlineCode(value: string): { readonly inner: string; readonly marker: string | null } {
+  const match = /^(`+)([\s\S]*?)\1$/.exec(value)
+  if (!match) return { inner: value, marker: null }
+  return { inner: match[2], marker: match[1] }
 }
 
 function composeDesignMarkdown(frontmatter: string | null, body: string): string {

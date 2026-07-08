@@ -18,6 +18,7 @@ import {
   Layers3,
   Loader2,
   MessageCircle,
+  Minus,
   MousePointerClick,
   PackageOpen,
   Paperclip,
@@ -67,7 +68,10 @@ import { createPrototypeAssetManifest } from '@/prototype/asset-manifest'
 import {
   appendDesignMarkdownSection,
   appendDesignMarkdownTableRow,
+  editableDesignValueLiteral,
+  formatEditedDesignValue,
   parseEditableDesignMarkdown,
+  parseEditableDesignValue,
   removeDesignMarkdownSection,
   removeDesignMarkdownTableRow,
   updateDesignMarkdownControl,
@@ -2082,20 +2086,20 @@ function DesignTableEditor({
             style={{ gridTemplateColumns: `repeat(${table.headers.length}, minmax(0, 1fr)) 1.75rem` }}
           >
             {table.headers.map((_, cellIndex) => (
-              <Input
+              <DesignValueEditor
                 key={`${table.id}:row:${rowIndex}:cell:${cellIndex}`}
                 value={row[cellIndex] ?? ''}
-                aria-label={`Table row ${rowIndex + 1} cell ${cellIndex + 1}`}
-                onChange={(event) =>
+                label={`Table row ${rowIndex + 1} cell ${cellIndex + 1}`}
+                compact
+                onChange={(nextValue) =>
                   onChange(updateDesignMarkdownTableCell(
                     content,
                     table,
                     rowIndex,
                     cellIndex,
-                    event.target.value,
+                    formatEditedDesignValue(row[cellIndex] ?? '', nextValue),
                   ))
                 }
-                className="h-7 font-mono text-[11px]"
               />
             ))}
             <Button
@@ -2158,14 +2162,6 @@ function DesignControlRow({
   readonly content: string
   readonly onChange: (content: string) => void
 }) {
-  const color = control.kind === 'color' ? extractEditableColor(control.value) : null
-  const numberValue =
-    control.kind === 'number' ? Number.parseFloat(control.value) : Number.NaN
-
-  function update(nextValue: string): void {
-    onChange(updateDesignMarkdownControl(content, control, nextValue))
-  }
-
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
@@ -2179,51 +2175,137 @@ function DesignControlRow({
         ) : null}
       </div>
 
-      {control.kind === 'color' && color ? (
-        <div className="grid grid-cols-[2rem_1fr] gap-2">
-          <input
-            type="color"
-            value={color}
-            aria-label={control.label}
-            onChange={(event) => update(replaceFirstColor(control.value, event.target.value))}
-            className="h-8 w-8 rounded-md border border-border bg-transparent p-0.5"
-          />
-          <Input
-            value={control.value}
-            onChange={(event) => update(event.target.value)}
-            className="font-mono text-xs"
-          />
-        </div>
-      ) : control.kind === 'number' && Number.isFinite(numberValue) ? (
-        <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_4.5rem] items-center gap-3">
-            <Slider
-              value={[numberValue]}
-              min={control.min}
-              max={control.max}
-              step={control.unit === null ? 0.1 : 1}
-              onValueChange={(value) => {
-                const next = value[0]
-                if (typeof next === 'number') {
-                  update(`${Number(next.toFixed(2))}${control.unit ?? ''}`)
-                }
-              }}
-            />
-            <Input
-              value={control.value}
-              onChange={(event) => update(event.target.value)}
-              className="font-mono text-xs"
-            />
-          </div>
-        </div>
-      ) : (
-        <Input
-          value={control.value}
-          onChange={(event) => update(event.target.value)}
-          className="text-xs"
-        />
-      )}
+      <DesignValueEditor
+        value={control.value}
+        label={control.label}
+        onChange={(nextValue) =>
+          onChange(updateDesignMarkdownControl(
+            content,
+            control,
+            formatEditedDesignValue(control.value, nextValue),
+          ))
+        }
+      />
     </div>
+  )
+}
+
+function DesignValueEditor({
+  value,
+  label,
+  compact = false,
+  onChange,
+}: {
+  readonly value: string
+  readonly label: string
+  readonly compact?: boolean
+  readonly onChange: (value: string) => void
+}) {
+  const meta = parseEditableDesignValue(value)
+  const color = meta.kind === 'color' ? extractEditableColor(value) : null
+  const numberValue =
+    meta.kind === 'number' ? Number.parseFloat(editableDesignValueLiteral(value)) : Number.NaN
+
+  if (meta.kind === 'color' && color) {
+    return (
+      <div className={cn('grid gap-2', compact ? 'grid-cols-[1.75rem_1fr]' : 'grid-cols-[2rem_1fr]')}>
+        <input
+          type="color"
+          value={color}
+          aria-label={label}
+          onChange={(event) => onChange(replaceFirstColor(value, event.target.value))}
+          className={cn(
+            'rounded-md border border-border bg-transparent p-0.5',
+            compact ? 'h-7 w-7' : 'h-8 w-8',
+          )}
+        />
+        <Input
+          value={value}
+          aria-label={`${label} value`}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn('font-mono', compact ? 'h-7 px-2 text-[11px]' : 'text-xs')}
+        />
+      </div>
+    )
+  }
+
+  if (meta.kind === 'number' && Number.isFinite(numberValue)) {
+    const step = numericStepForUnit(meta.unit)
+    const updateNumber = (nextValue: number) => {
+      const clamped = Math.min(meta.max, Math.max(meta.min, nextValue))
+      onChange(formatNumberValue(clamped, meta.unit, step))
+    }
+
+    return (
+      <div className={cn(
+        'rounded-lg border border-border bg-background/60',
+        compact ? 'space-y-1 p-1' : 'space-y-2 p-2',
+      )}>
+        <div className="flex min-w-0 items-center gap-1">
+          <Input
+            type="number"
+            value={Number(numberValue.toFixed(decimalPlacesForStep(step)))}
+            aria-label={label}
+            min={meta.min}
+            max={meta.max}
+            step={step}
+            onChange={(event) => {
+              const next = Number.parseFloat(event.target.value)
+              if (Number.isFinite(next)) updateNumber(next)
+            }}
+            className={cn(
+              'min-w-0 font-mono tabular-nums',
+              compact ? 'h-6 px-1.5 text-[11px]' : 'h-7 text-xs',
+            )}
+          />
+          {meta.unit ? (
+            <span className="shrink-0 rounded bg-muted px-1.5 py-1 font-mono text-[10px] text-muted-foreground">
+              {meta.unit}
+            </span>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-[1.5rem_1fr_1.5rem] items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Decrease ${label}`}
+            onClick={() => updateNumber(numberValue - step)}
+          >
+            <Minus className="size-3" />
+          </Button>
+          <Slider
+            value={[numberValue]}
+            min={meta.min}
+            max={meta.max}
+            step={step}
+            aria-label={`${label} slider`}
+            onValueChange={(values) => {
+              const next = values[0]
+              if (typeof next === 'number') updateNumber(next)
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Increase ${label}`}
+            onClick={() => updateNumber(numberValue + step)}
+          >
+            <Plus className="size-3" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <Input
+      value={value}
+      aria-label={label}
+      onChange={(event) => onChange(event.target.value)}
+      className={cn('text-xs', compact && 'h-7 px-2 font-mono text-[11px]')}
+    />
   )
 }
 
@@ -2279,6 +2361,24 @@ function extractEditableColor(value: string): string | null {
 
 function replaceFirstColor(value: string, color: string): string {
   return value.replace(/#[0-9a-f]{3}(?:[0-9a-f]{3})?(?:[0-9a-f]{2})?/i, color)
+}
+
+function numericStepForUnit(unit: string | null): number {
+  if (unit === 'rem' || unit === 'em' || unit === 's' || unit === null) return 0.1
+  if (unit === 'ms') return 10
+  return 1
+}
+
+function decimalPlacesForStep(step: number): number {
+  const text = String(step)
+  const index = text.indexOf('.')
+  return index < 0 ? 0 : text.length - index - 1
+}
+
+function formatNumberValue(value: number, unit: string | null, step: number): string {
+  const decimals = decimalPlacesForStep(step)
+  const rounded = Number(value.toFixed(Math.max(0, decimals)))
+  return `${rounded}${unit ?? ''}`
 }
 
 function OutputHeader({
